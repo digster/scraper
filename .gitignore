@@ -32,6 +32,7 @@ go.work.sum
 # .vscode/
 
 # app
+backup
 *.json
 scraper
 .DS_Store

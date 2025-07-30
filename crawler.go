@@ -136,12 +136,22 @@ func (c *Crawler) crawlSequential() {
 			continue
 		}
 
-		c.processURL(currentURL)
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("Recovered from panic while processing %s: %v\n", currentURL, r)
+				}
+			}()
+			c.processURL(currentURL)
+		}()
+		
 		time.Sleep(c.config.Delay)
 
 		// Save state periodically
 		if c.state.Processed%10 == 0 {
-			c.saveState()
+			if err := c.saveState(); err != nil {
+				fmt.Printf("Warning: Failed to save state: %v\n", err)
+			}
 		}
 	}
 }
@@ -161,6 +171,11 @@ func (c *Crawler) crawlConcurrent() {
 		go func(url string) {
 			defer c.wg.Done()
 			defer func() { <-c.semaphore }() // Release semaphore
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("Recovered from panic while processing %s: %v\n", url, r)
+				}
+			}()
 
 			c.processURL(url)
 			time.Sleep(c.config.Delay)
@@ -169,7 +184,9 @@ func (c *Crawler) crawlConcurrent() {
 		// Save state periodically
 		if c.state.Processed%10 == 0 {
 			c.wg.Wait()
-			c.saveState()
+			if err := c.saveState(); err != nil {
+				fmt.Printf("Warning: Failed to save state: %v\n", err)
+			}
 		}
 	}
 
@@ -177,6 +194,12 @@ func (c *Crawler) crawlConcurrent() {
 }
 
 func (c *Crawler) processURL(rawURL string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("Panic in processURL for %s: %v\n", rawURL, r)
+		}
+	}()
+
 	c.mu.Lock()
 	if c.state.Visited[rawURL] {
 		c.mu.Unlock()
@@ -193,7 +216,11 @@ func (c *Crawler) processURL(rawURL string) {
 		fmt.Printf("Error fetching %s: %v\n", rawURL, err)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if resp != nil && resp.Body != nil {
+			resp.Body.Close()
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		fmt.Printf("HTTP %d for %s\n", resp.StatusCode, rawURL)
@@ -218,11 +245,24 @@ func (c *Crawler) processURL(rawURL string) {
 		return
 	}
 
-	// Extract and queue new URLs
-	c.extractAndQueueURLs(rawURL, string(body))
+	// Extract and queue new URLs - wrap in error handling
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Printf("Panic extracting URLs from %s: %v\n", rawURL, r)
+			}
+		}()
+		c.extractAndQueueURLs(rawURL, string(body))
+	}()
 }
 
 func (c *Crawler) hasContent(html string) bool {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("Panic in hasContent: %v\n", r)
+		}
+	}()
+
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
 	if err != nil {
 		return false
@@ -302,17 +342,31 @@ func (c *Crawler) generateFilename(parsedURL *url.URL) string {
 }
 
 func (c *Crawler) extractAndQueueURLs(baseURL, html string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("Panic in extractAndQueueURLs for %s: %v\n", baseURL, r)
+		}
+	}()
+
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
 	if err != nil {
+		fmt.Printf("Error parsing HTML for %s: %v\n", baseURL, err)
 		return
 	}
 
 	base, err := url.Parse(baseURL)
 	if err != nil {
+		fmt.Printf("Error parsing base URL %s: %v\n", baseURL, err)
 		return
 	}
 
 	doc.Find("a[href]").Each(func(i int, s *goquery.Selection) {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Printf("Panic processing link in %s: %v\n", baseURL, r)
+			}
+		}()
+
 		href, exists := s.Attr("href")
 		if !exists {
 			return
@@ -320,27 +374,37 @@ func (c *Crawler) extractAndQueueURLs(baseURL, html string) {
 
 		absoluteURL, err := base.Parse(href)
 		if err != nil {
+			// Skip malformed URLs silently
 			return
 		}
 
 		urlStr := absoluteURL.String()
 
 		if c.isValidURL(urlStr) {
-			c.mu.Lock()
-			if !c.state.Visited[urlStr] {
-				// Check if already in queue
-				inQueue := false
-				for _, queuedURL := range c.state.Queue {
-					if queuedURL == urlStr {
-						inQueue = true
-						break
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						fmt.Printf("Panic queuing URL %s: %v\n", urlStr, r)
+					}
+				}()
+				
+				c.mu.Lock()
+				defer c.mu.Unlock()
+				
+				if !c.state.Visited[urlStr] {
+					// Check if already in queue
+					inQueue := false
+					for _, queuedURL := range c.state.Queue {
+						if queuedURL == urlStr {
+							inQueue = true
+							break
+						}
+					}
+					if !inQueue {
+						c.state.Queue = append(c.state.Queue, urlStr)
 					}
 				}
-				if !inQueue {
-					c.state.Queue = append(c.state.Queue, urlStr)
-				}
-			}
-			c.mu.Unlock()
+			}()
 		}
 	})
 }
