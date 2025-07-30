@@ -90,7 +90,31 @@ func (c *Crawler) isValidURL(rawURL string) bool {
 	}
 
 	// Must be HTTP/HTTPS
-	return parsed.Scheme == "http" || parsed.Scheme == "https"
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return false
+	}
+
+	// If prefix filtering is disabled (empty or "none"), allow any HTTP/HTTPS URL discovered through the tree
+	if c.config.PrefixFilterURL == "" || c.config.PrefixFilterURL == "none" {
+		return true
+	}
+
+	// With prefix filtering enabled: check URL prefix constraint using the specified prefix filter URL
+	prefixURL, err := url.Parse(c.config.PrefixFilterURL)
+	if err != nil {
+		return false
+	}
+
+	// Check if URL has the prefix URL as prefix
+	if parsed.Host != prefixURL.Host {
+		return false
+	}
+
+	// Check if path starts with prefix path
+	prefixPath := strings.TrimSuffix(prefixURL.Path, "/")
+	urlPath := strings.TrimSuffix(parsed.Path, "/")
+
+	return strings.HasPrefix(urlPath, prefixPath)
 }
 
 func (c *Crawler) shouldExcludeByExtension(path string) bool {

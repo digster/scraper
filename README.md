@@ -45,6 +45,7 @@ go build -o scraper
           -depth 15 \
           -output my_backup \
           -state crawler.json \
+          -prefix-filter https://example.com/api \
           -exclude-extensions js,css,png,jpg
 ```
 
@@ -56,6 +57,7 @@ go build -o scraper
 - `-depth`: Maximum crawl depth based on discovery hierarchy (default: 10)
 - `-output`: Output directory for scraped content (default: "scraped_content")
 - `-state`: State file for resume functionality (default: "crawler_state.json")
+- `-prefix-filter`: URL prefix to filter by (if not specified, no prefix filtering is applied)
 - `-exclude-extensions`: Comma-separated list of asset extensions to exclude (e.g., js,css,png)
 
 ## How It Works
@@ -67,15 +69,22 @@ go build -o scraper
    - But if `d.com` is linked from `a.com/e` (not discovered through our tree), it won't be crawled
    - Depth is tracked based on discovery steps, not URL structure
 
-2. **Content Filtering**: Pages are only saved if they contain meaningful content (>100 characters of text after removing scripts and styles)
+2. **URL Filtering Modes**:
+   - **Default (No Prefix Filtering)**: Crawls any HTTP/HTTPS URL discovered through the tree, regardless of domain
+     - Input: `https://example.com/docs` → Will crawl any domain linked from the discovery tree
+   - **With Prefix Filtering**: Use `-prefix-filter <url>` to only crawl URLs matching a specific prefix
+     - Example: `-prefix-filter https://example.com/api` → Only crawls URLs starting with `https://example.com/api`
+     - Even if other URLs are discovered through the tree, they'll be skipped if they don't match the prefix
 
-3. **Asset Filtering**: URLs with excluded extensions (specified via `-exclude-extensions`) are skipped
+3. **Content Filtering**: Pages are only saved if they contain meaningful content (>100 characters of text after removing scripts and styles)
 
-4. **File Storage**: Each page is saved as:
+4. **Asset Filtering**: URLs with excluded extensions (specified via `-exclude-extensions`) are skipped
+
+5. **File Storage**: Each page is saved as:
    - `{path}.html`: The actual HTML content  
    - `{path}.meta.json`: Metadata including original URL, timestamp, and size
 
-5. **Resume Capability**: State is saved periodically and can be resumed by running the same command again
+6. **Resume Capability**: State is saved periodically and can be resumed by running the same command again
 
 ## Output Structure
 
@@ -113,9 +122,16 @@ Simply run the same command again - it will automatically resume from the state 
 ./scraper -url https://example.com -depth 3
 ```
 
+### Use prefix filtering to limit to specific URLs
+```bash
+./scraper -url https://example.com -prefix-filter https://api.example.com
+```
+
 ## Notes
 
 - The scraper uses hierarchical discovery - only URLs found through the crawling tree are processed
+- By default, no prefix filtering is applied - any domain discovered through the tree will be crawled
+- Use `-prefix-filter <url>` to limit crawling to URLs matching a specific prefix
 - Depth is measured by discovery steps, not URL path depth
 - Only HTML pages with substantial content are saved
 - Use `-exclude-extensions` to skip downloading specific asset types (js, css, images, etc.)
