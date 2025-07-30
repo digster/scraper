@@ -77,6 +77,11 @@ func (c *Crawler) isValidURL(rawURL string) bool {
 		return false
 	}
 
+	// Check if URL extension should be excluded
+	if c.shouldExcludeByExtension(parsed.Path) {
+		return false
+	}
+
 	// If prefix filtering is disabled, only check for valid HTTP/HTTPS URLs
 	if c.config.DisablePrefixFilter {
 		return parsed.Scheme == "http" || parsed.Scheme == "https"
@@ -97,6 +102,28 @@ func (c *Crawler) isValidURL(rawURL string) bool {
 	urlPath := strings.TrimSuffix(parsed.Path, "/")
 
 	return strings.HasPrefix(urlPath, basePath)
+}
+
+func (c *Crawler) shouldExcludeByExtension(path string) bool {
+	if len(c.config.ExcludeExtensions) == 0 {
+		return false
+	}
+
+	// Extract extension from path
+	ext := strings.ToLower(filepath.Ext(path))
+	if ext != "" {
+		// Remove the dot from extension
+		ext = ext[1:]
+	}
+
+	// Check if extension is in exclude list
+	for _, excludeExt := range c.config.ExcludeExtensions {
+		if ext == excludeExt {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (c *Crawler) loadState() error {
@@ -161,7 +188,12 @@ func (c *Crawler) crawlConcurrent() {
 		currentURL := c.state.Queue[0]
 		c.state.Queue = c.state.Queue[1:]
 
-		if c.state.Visited[currentURL] {
+		// Check if already visited with proper locking
+		c.mu.RLock()
+		visited := c.state.Visited[currentURL]
+		c.mu.RUnlock()
+
+		if visited {
 			continue
 		}
 

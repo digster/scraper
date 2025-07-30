@@ -20,6 +20,7 @@ type Config struct {
 	OutputDir        string
 	StateFile        string
 	DisablePrefixFilter bool
+	ExcludeExtensions []string
 }
 
 func sanitizeDirName(name string) string {
@@ -46,6 +47,7 @@ func sanitizeDirName(name string) string {
 
 func main() {
 	var config Config
+	var excludeExtensions string
 	
 	flag.StringVar(&config.URL, "url", "", "Starting URL to scrape")
 	flag.BoolVar(&config.Concurrent, "concurrent", false, "Run in concurrent mode")
@@ -54,7 +56,16 @@ func main() {
 	flag.StringVar(&config.OutputDir, "output", "", "Output directory (defaults to URL-based name)")
 	flag.StringVar(&config.StateFile, "state", "", "State file for resume functionality (defaults to folder name)")
 	flag.BoolVar(&config.DisablePrefixFilter, "disable-prefix-filter", false, "Disable URL prefix filtering (allows crawling outside input URL prefix)")
+	flag.StringVar(&excludeExtensions, "exclude-extensions", "", "Comma-separated list of asset extensions to exclude (e.g., js,css,png)")
 	flag.Parse()
+
+	// Parse exclude extensions
+	if excludeExtensions != "" {
+		config.ExcludeExtensions = strings.Split(excludeExtensions, ",")
+		for i, ext := range config.ExcludeExtensions {
+			config.ExcludeExtensions[i] = strings.TrimSpace(strings.ToLower(ext))
+		}
+	}
 
 	if config.URL == "" {
 		fmt.Println("Error: URL is required")
