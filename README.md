@@ -14,7 +14,9 @@ Ask any clarifying questions if needed.
 
 ## Features
 
-- **URL Prefix Filtering**: Only scrapes pages with URLs that have the input URL as a prefix
+- **Hierarchical Crawling**: Only crawls URLs discovered from the input URL and its children (tree-based discovery)
+- **Depth Control**: Respects maximum crawl depth based on discovery hierarchy
+- **Asset Filtering**: Exclude specific file extensions (js, css, images, etc.) from being downloaded
 - **Concurrent/Sequential Mode**: Choose between concurrent or sequential crawling
 - **Configurable Delays**: Set delays between fetches to be respectful to servers
 - **Content Validation**: Only saves pages with meaningful content (>100 characters of text)
@@ -43,7 +45,6 @@ go build -o scraper
           -depth 15 \
           -output my_backup \
           -state crawler.json \
-          -disable-prefix-filter \
           -exclude-extensions js,css,png,jpg
 ```
 
@@ -52,27 +53,29 @@ go build -o scraper
 - `-url`: Starting URL to scrape (required)
 - `-concurrent`: Run in concurrent mode (default: false)
 - `-delay`: Delay between fetches (default: 1s)
-- `-depth`: Maximum crawl depth (default: 10)
+- `-depth`: Maximum crawl depth based on discovery hierarchy (default: 10)
 - `-output`: Output directory for scraped content (default: "scraped_content")
 - `-state`: State file for resume functionality (default: "crawler_state.json")
-- `-disable-prefix-filter`: Disable URL prefix filtering (allows crawling outside input URL prefix) (default: false)
 - `-exclude-extensions`: Comma-separated list of asset extensions to exclude (e.g., js,css,png)
 
 ## How It Works
 
-1. **URL Validation**: By default, only processes URLs that have the input URL as a prefix
-   - Input: `https://example.com/docs`
-   - Valid: `https://example.com/docs/page1`, `https://example.com/docs/sub/page2`
-   - Invalid: `https://example.com/other`, `https://other.com/docs`
-   - With `-disable-prefix-filter`: All HTTP/HTTPS URLs are valid (allows crawling across domains)
+1. **Hierarchical Discovery**: Only processes URLs discovered through the crawling tree starting from the input URL
+   - Input: `https://a.com/a`
+   - If `b.com` is linked from `a.com/a`, it will be crawled
+   - If `c.com` is linked from `b.com`, it will also be crawled  
+   - But if `d.com` is linked from `a.com/e` (not discovered through our tree), it won't be crawled
+   - Depth is tracked based on discovery steps, not URL structure
 
 2. **Content Filtering**: Pages are only saved if they contain meaningful content (>100 characters of text after removing scripts and styles)
 
-3. **File Storage**: Each page is saved as:
-   - `{hash}.html`: The actual HTML content
-   - `{hash}.meta.json`: Metadata including original URL, timestamp, and size
+3. **Asset Filtering**: URLs with excluded extensions (specified via `-exclude-extensions`) are skipped
 
-4. **Resume Capability**: State is saved periodically and can be resumed by running the same command again
+4. **File Storage**: Each page is saved as:
+   - `{path}.html`: The actual HTML content  
+   - `{path}.meta.json`: Metadata including original URL, timestamp, and size
+
+5. **Resume Capability**: State is saved periodically and can be resumed by running the same command again
 
 ## Output Structure
 
@@ -100,20 +103,20 @@ scraped_content/
 ### Resume interrupted crawling
 Simply run the same command again - it will automatically resume from the state file.
 
-### Crawl without URL prefix filtering
-```bash
-./scraper -url https://example.com -disable-prefix-filter
-```
-
 ### Exclude specific asset types
 ```bash
 ./scraper -url https://example.com -exclude-extensions js,css,png,jpg,gif
 ```
 
+### Limit crawl depth
+```bash
+./scraper -url https://example.com -depth 3
+```
+
 ## Notes
 
-- By default, the scraper respects the URL prefix constraint strictly
-- Use `-disable-prefix-filter` to allow crawling across domains (be careful with this option)
+- The scraper uses hierarchical discovery - only URLs found through the crawling tree are processed
+- Depth is measured by discovery steps, not URL path depth
 - Only HTML pages with substantial content are saved
 - Use `-exclude-extensions` to skip downloading specific asset types (js, css, images, etc.)
 - Concurrent mode limits to 10 simultaneous requests to avoid overwhelming servers

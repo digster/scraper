@@ -16,11 +16,17 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
+type URLInfo struct {
+	URL   string `json:"url"`
+	Depth int    `json:"depth"`
+}
+
 type CrawlerState struct {
 	Visited   map[string]bool `json:"visited"`
-	Queue     []string        `json:"queue"`
+	Queue     []URLInfo       `json:"queue"`
 	BaseURL   string          `json:"base_url"`
 	Processed int             `json:"processed"`
+	URLDepths map[string]int  `json:"url_depths"`
 }
 
 type Crawler struct {
@@ -57,7 +63,8 @@ func (c *Crawler) Start() error {
 	}
 
 	if len(c.state.Queue) == 0 {
-		c.state.Queue = append(c.state.Queue, c.config.URL)
+		c.state.Queue = append(c.state.Queue, URLInfo{URL: c.config.URL, Depth: 0})
+		c.state.URLDepths[c.config.URL] = 0
 	}
 
 	fmt.Printf("Starting crawler with %d URLs in queue\n", len(c.state.Queue))
@@ -82,26 +89,8 @@ func (c *Crawler) isValidURL(rawURL string) bool {
 		return false
 	}
 
-	// If prefix filtering is disabled, only check for valid HTTP/HTTPS URLs
-	if c.config.DisablePrefixFilter {
-		return parsed.Scheme == "http" || parsed.Scheme == "https"
-	}
-
-	baseURL, err := url.Parse(c.state.BaseURL)
-	if err != nil {
-		return false
-	}
-
-	// Check if URL has the base URL as prefix
-	if parsed.Host != baseURL.Host {
-		return false
-	}
-
-	// Check if path starts with base path
-	basePath := strings.TrimSuffix(baseURL.Path, "/")
-	urlPath := strings.TrimSuffix(parsed.Path, "/")
-
-	return strings.HasPrefix(urlPath, basePath)
+	// Must be HTTP/HTTPS
+	return parsed.Scheme == "http" || parsed.Scheme == "https"
 }
 
 func (c *Crawler) shouldExcludeByExtension(path string) bool {
@@ -128,9 +117,10 @@ func (c *Crawler) shouldExcludeByExtension(path string) bool {
 
 func (c *Crawler) loadState() error {
 	c.state = &CrawlerState{
-		Visited: make(map[string]bool),
-		Queue:   []string{},
-		BaseURL: c.config.URL,
+		Visited:   make(map[string]bool),
+		Queue:     []URLInfo{},
+		BaseURL:   c.config.URL,
+		URLDepths: make(map[string]int),
 	}
 
 	if _, err := os.Stat(c.config.StateFile); os.IsNotExist(err) {
@@ -156,20 +146,25 @@ func (c *Crawler) saveState() error {
 
 func (c *Crawler) crawlSequential() {
 	for len(c.state.Queue) > 0 {
-		currentURL := c.state.Queue[0]
+		currentURLInfo := c.state.Queue[0]
 		c.state.Queue = c.state.Queue[1:]
 
-		if c.state.Visited[currentURL] {
+		if c.state.Visited[currentURLInfo.URL] {
+			continue
+		}
+
+		// Check depth constraint
+		if currentURLInfo.Depth > c.config.MaxDepth {
 			continue
 		}
 
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
-					fmt.Printf("Recovered from panic while processing %s: %v\n", currentURL, r)
+					fmt.Printf("Recovered from panic while processing %s: %v\n", currentURLInfo.URL, r)
 				}
 			}()
-			c.processURL(currentURL)
+			c.processURL(currentURLInfo.URL, currentURLInfo.Depth)
 		}()
 		
 		time.Sleep(c.config.Delay)
@@ -185,33 +180,38 @@ func (c *Crawler) crawlSequential() {
 
 func (c *Crawler) crawlConcurrent() {
 	for len(c.state.Queue) > 0 {
-		currentURL := c.state.Queue[0]
+		currentURLInfo := c.state.Queue[0]
 		c.state.Queue = c.state.Queue[1:]
 
 		// Check if already visited with proper locking
 		c.mu.RLock()
-		visited := c.state.Visited[currentURL]
+		visited := c.state.Visited[currentURLInfo.URL]
 		c.mu.RUnlock()
 
 		if visited {
 			continue
 		}
 
+		// Check depth constraint
+		if currentURLInfo.Depth > c.config.MaxDepth {
+			continue
+		}
+
 		c.wg.Add(1)
 		c.semaphore <- struct{}{} // Acquire semaphore
 
-		go func(url string) {
+		go func(urlInfo URLInfo) {
 			defer c.wg.Done()
 			defer func() { <-c.semaphore }() // Release semaphore
 			defer func() {
 				if r := recover(); r != nil {
-					fmt.Printf("Recovered from panic while processing %s: %v\n", url, r)
+					fmt.Printf("Recovered from panic while processing %s: %v\n", urlInfo.URL, r)
 				}
 			}()
 
-			c.processURL(url)
+			c.processURL(urlInfo.URL, urlInfo.Depth)
 			time.Sleep(c.config.Delay)
-		}(currentURL)
+		}(currentURLInfo)
 
 		// Save state periodically
 		if c.state.Processed%10 == 0 {
@@ -225,7 +225,7 @@ func (c *Crawler) crawlConcurrent() {
 	c.wg.Wait()
 }
 
-func (c *Crawler) processURL(rawURL string) {
+func (c *Crawler) processURL(rawURL string, currentDepth int) {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Printf("Panic in processURL for %s: %v\n", rawURL, r)
@@ -284,7 +284,7 @@ func (c *Crawler) processURL(rawURL string) {
 				fmt.Printf("Panic extracting URLs from %s: %v\n", rawURL, r)
 			}
 		}()
-		c.extractAndQueueURLs(rawURL, string(body))
+		c.extractAndQueueURLs(rawURL, string(body), currentDepth)
 	}()
 }
 
@@ -373,7 +373,7 @@ func (c *Crawler) generateFilename(parsedURL *url.URL) string {
 	return path
 }
 
-func (c *Crawler) extractAndQueueURLs(baseURL, html string) {
+func (c *Crawler) extractAndQueueURLs(baseURL, html string, currentDepth int) {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Printf("Panic in extractAndQueueURLs for %s: %v\n", baseURL, r)
@@ -426,14 +426,17 @@ func (c *Crawler) extractAndQueueURLs(baseURL, html string) {
 				if !c.state.Visited[urlStr] {
 					// Check if already in queue
 					inQueue := false
-					for _, queuedURL := range c.state.Queue {
-						if queuedURL == urlStr {
+					for _, queuedURLInfo := range c.state.Queue {
+						if queuedURLInfo.URL == urlStr {
 							inQueue = true
 							break
 						}
 					}
 					if !inQueue {
-						c.state.Queue = append(c.state.Queue, urlStr)
+						// Add URL with incremented depth
+						newDepth := currentDepth + 1
+						c.state.Queue = append(c.state.Queue, URLInfo{URL: urlStr, Depth: newDepth})
+						c.state.URLDepths[urlStr] = newDepth
 					}
 				}
 			}()

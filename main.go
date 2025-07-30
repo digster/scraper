@@ -19,7 +19,6 @@ type Config struct {
 	MaxDepth         int
 	OutputDir        string
 	StateFile        string
-	DisablePrefixFilter bool
 	ExcludeExtensions []string
 }
 
@@ -55,7 +54,6 @@ func main() {
 	flag.IntVar(&config.MaxDepth, "depth", 10, "Maximum crawl depth")
 	flag.StringVar(&config.OutputDir, "output", "", "Output directory (defaults to URL-based name)")
 	flag.StringVar(&config.StateFile, "state", "", "State file for resume functionality (defaults to folder name)")
-	flag.BoolVar(&config.DisablePrefixFilter, "disable-prefix-filter", false, "Disable URL prefix filtering (allows crawling outside input URL prefix)")
 	flag.StringVar(&excludeExtensions, "exclude-extensions", "", "Comma-separated list of asset extensions to exclude (e.g., js,css,png)")
 	flag.Parse()
 
