@@ -27,6 +27,7 @@ type CrawlerState struct {
 	BaseURL   string          `json:"base_url"`
 	Processed int             `json:"processed"`
 	URLDepths map[string]int  `json:"url_depths"`
+	Queued    map[string]bool `json:"queued"`
 }
 
 type Crawler struct {
@@ -65,6 +66,7 @@ func (c *Crawler) Start() error {
 	if len(c.state.Queue) == 0 {
 		c.state.Queue = append(c.state.Queue, URLInfo{URL: c.config.URL, Depth: 0})
 		c.state.URLDepths[c.config.URL] = 0
+		c.state.Queued[c.config.URL] = true
 	}
 
 	fmt.Printf("Starting crawler with %d URLs in queue\n", len(c.state.Queue))
@@ -145,6 +147,7 @@ func (c *Crawler) loadState() error {
 		Queue:     []URLInfo{},
 		BaseURL:   c.config.URL,
 		URLDepths: make(map[string]int),
+		Queued:    make(map[string]bool),
 	}
 
 	if _, err := os.Stat(c.config.StateFile); os.IsNotExist(err) {
@@ -156,7 +159,20 @@ func (c *Crawler) loadState() error {
 		return err
 	}
 
-	return json.Unmarshal(data, c.state)
+	if err := json.Unmarshal(data, c.state); err != nil {
+		return err
+	}
+
+	// Initialize Queued map if it doesn't exist (backward compatibility)
+	if c.state.Queued == nil {
+		c.state.Queued = make(map[string]bool)
+		// Populate queued map from existing queue
+		for _, urlInfo := range c.state.Queue {
+			c.state.Queued[urlInfo.URL] = true
+		}
+	}
+
+	return nil
 }
 
 func (c *Crawler) saveState() error {
@@ -172,6 +188,9 @@ func (c *Crawler) crawlSequential() {
 	for len(c.state.Queue) > 0 {
 		currentURLInfo := c.state.Queue[0]
 		c.state.Queue = c.state.Queue[1:]
+
+		// Remove from queued map
+		delete(c.state.Queued, currentURLInfo.URL)
 
 		if c.state.Visited[currentURLInfo.URL] {
 			continue
@@ -207,10 +226,11 @@ func (c *Crawler) crawlConcurrent() {
 		currentURLInfo := c.state.Queue[0]
 		c.state.Queue = c.state.Queue[1:]
 
-		// Check if already visited with proper locking
-		c.mu.RLock()
+		// Remove from queued map with proper locking
+		c.mu.Lock()
+		delete(c.state.Queued, currentURLInfo.URL)
 		visited := c.state.Visited[currentURLInfo.URL]
-		c.mu.RUnlock()
+		c.mu.Unlock()
 
 		if visited {
 			continue
@@ -447,21 +467,12 @@ func (c *Crawler) extractAndQueueURLs(baseURL, html string, currentDepth int) {
 				c.mu.Lock()
 				defer c.mu.Unlock()
 				
-				if !c.state.Visited[urlStr] {
-					// Check if already in queue
-					inQueue := false
-					for _, queuedURLInfo := range c.state.Queue {
-						if queuedURLInfo.URL == urlStr {
-							inQueue = true
-							break
-						}
-					}
-					if !inQueue {
-						// Add URL with incremented depth
-						newDepth := currentDepth + 1
-						c.state.Queue = append(c.state.Queue, URLInfo{URL: urlStr, Depth: newDepth})
-						c.state.URLDepths[urlStr] = newDepth
-					}
+				if !c.state.Visited[urlStr] && !c.state.Queued[urlStr] {
+					// Add URL with incremented depth
+					newDepth := currentDepth + 1
+					c.state.Queue = append(c.state.Queue, URLInfo{URL: urlStr, Depth: newDepth})
+					c.state.URLDepths[urlStr] = newDepth
+					c.state.Queued[urlStr] = true
 				}
 			}()
 		}
