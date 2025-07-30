@@ -35,3 +35,4 @@ go.work.sum
 my_backup
 *.json
 scraper
+.DS_Store

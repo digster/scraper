@@ -9,12 +9,13 @@ import (
 )
 
 type Config struct {
-	URL        string
-	Concurrent bool
-	Delay      time.Duration
-	MaxDepth   int
-	OutputDir  string
-	StateFile  string
+	URL              string
+	Concurrent       bool
+	Delay            time.Duration
+	MaxDepth         int
+	OutputDir        string
+	StateFile        string
+	DisablePrefixFilter bool
 }
 
 func main() {
@@ -26,6 +27,7 @@ func main() {
 	flag.IntVar(&config.MaxDepth, "depth", 10, "Maximum crawl depth")
 	flag.StringVar(&config.OutputDir, "output", "scraped_content", "Output directory")
 	flag.StringVar(&config.StateFile, "state", "crawler_state.json", "State file for resume functionality")
+	flag.BoolVar(&config.DisablePrefixFilter, "disable-prefix-filter", false, "Disable URL prefix filtering (allows crawling outside input URL prefix)")
 	flag.Parse()
 
 	if config.URL == "" {

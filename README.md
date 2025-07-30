@@ -32,7 +32,8 @@ go build -o scraper
           -delay 2s \
           -depth 15 \
           -output my_backup \
-          -state crawler.json
+          -state crawler.json \
+          -disable-prefix-filter
 ```
 
 ### Command Line Arguments
@@ -43,13 +44,15 @@ go build -o scraper
 - `-depth`: Maximum crawl depth (default: 10)
 - `-output`: Output directory for scraped content (default: "scraped_content")
 - `-state`: State file for resume functionality (default: "crawler_state.json")
+- `-disable-prefix-filter`: Disable URL prefix filtering (allows crawling outside input URL prefix) (default: false)
 
 ## How It Works
 
-1. **URL Validation**: Only processes URLs that have the input URL as a prefix
+1. **URL Validation**: By default, only processes URLs that have the input URL as a prefix
    - Input: `https://example.com/docs`
    - Valid: `https://example.com/docs/page1`, `https://example.com/docs/sub/page2`
    - Invalid: `https://example.com/other`, `https://other.com/docs`
+   - With `-disable-prefix-filter`: All HTTP/HTTPS URLs are valid (allows crawling across domains)
 
 2. **Content Filtering**: Pages are only saved if they contain meaningful content (>100 characters of text after removing scripts and styles)
 
@@ -85,9 +88,15 @@ scraped_content/
 ### Resume interrupted crawling
 Simply run the same command again - it will automatically resume from the state file.
 
+### Crawl without URL prefix filtering
+```bash
+./scraper -url https://example.com -disable-prefix-filter
+```
+
 ## Notes
 
-- The scraper respects the URL prefix constraint strictly
+- By default, the scraper respects the URL prefix constraint strictly
+- Use `-disable-prefix-filter` to allow crawling across domains (be careful with this option)
 - Only HTML pages with substantial content are saved
 - Concurrent mode limits to 10 simultaneous requests to avoid overwhelming servers
 - State is saved every 10 processed URLs for resilience

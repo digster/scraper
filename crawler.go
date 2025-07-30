@@ -77,6 +77,11 @@ func (c *Crawler) isValidURL(rawURL string) bool {
 		return false
 	}
 	
+	// If prefix filtering is disabled, only check for valid HTTP/HTTPS URLs
+	if c.config.DisablePrefixFilter {
+		return parsed.Scheme == "http" || parsed.Scheme == "https"
+	}
+	
 	baseURL, err := url.Parse(c.state.BaseURL)
 	if err != nil {
 		return false
