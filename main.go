@@ -51,7 +51,7 @@ func main() {
 	flag.DurationVar(&config.Delay, "delay", time.Second, "Delay between fetches")
 	flag.IntVar(&config.MaxDepth, "depth", 10, "Maximum crawl depth")
 	flag.StringVar(&config.OutputDir, "output", "", "Output directory (defaults to URL-based name)")
-	flag.StringVar(&config.StateFile, "state", "crawler_state.json", "State file for resume functionality")
+	flag.StringVar(&config.StateFile, "state", "", "State file for resume functionality (defaults to folder name)")
 	flag.BoolVar(&config.DisablePrefixFilter, "disable-prefix-filter", false, "Disable URL prefix filtering (allows crawling outside input URL prefix)")
 	flag.Parse()
 
@@ -81,6 +81,11 @@ func main() {
 		// Sanitize directory name by removing/replacing invalid characters
 		dirName = sanitizeDirName(dirName)
 		config.OutputDir = dirName
+	}
+
+	// Generate state file name if not provided
+	if config.StateFile == "" {
+		config.StateFile = config.OutputDir + "_state.json"
 	}
 
 	crawler := NewCrawler(config)
