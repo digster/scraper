@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -80,12 +81,14 @@ func main() {
 		
 		// Sanitize directory name by removing/replacing invalid characters
 		dirName = sanitizeDirName(dirName)
-		config.OutputDir = dirName
+		config.OutputDir = filepath.Join("backup", dirName)
 	}
 
 	// Generate state file name if not provided
 	if config.StateFile == "" {
-		config.StateFile = config.OutputDir + "_state.json"
+		// Use just the folder name (without backup path) for state file
+		folderName := filepath.Base(config.OutputDir)
+		config.StateFile = folderName + "_state.json"
 	}
 
 	crawler := NewCrawler(config)
