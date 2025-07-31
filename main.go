@@ -13,14 +13,15 @@ import (
 )
 
 type Config struct {
-	URL              string
-	Concurrent       bool
-	Delay            time.Duration
-	MaxDepth         int
-	OutputDir        string
-	StateFile        string
-	PrefixFilterURL  string
+	URL               string
+	Concurrent        bool
+	Delay             time.Duration
+	MaxDepth          int
+	OutputDir         string
+	StateFile         string
+	PrefixFilterURL   string
 	ExcludeExtensions []string
+	LinkSelectors     []string
 }
 
 func sanitizeDirName(name string) string {
@@ -28,27 +29,28 @@ func sanitizeDirName(name string) string {
 	// Invalid characters: < > : " | ? * \ / and control characters
 	invalidChars := regexp.MustCompile(`[<>:"|?*\\/\x00-\x1f\x7f]`)
 	sanitized := invalidChars.ReplaceAllString(name, "_")
-	
+
 	// Remove leading/trailing dots and spaces (Windows restrictions)
 	sanitized = strings.Trim(sanitized, ". ")
-	
+
 	// Ensure it's not empty
 	if sanitized == "" {
 		sanitized = "scraped_content"
 	}
-	
+
 	// Limit length to avoid filesystem issues
 	if len(sanitized) > 100 {
 		sanitized = sanitized[:100]
 	}
-	
+
 	return sanitized
 }
 
 func main() {
 	var config Config
 	var excludeExtensions string
-	
+	var linkSelectors string
+
 	flag.StringVar(&config.URL, "url", "", "Starting URL to scrape")
 	flag.BoolVar(&config.Concurrent, "concurrent", false, "Run in concurrent mode")
 	flag.DurationVar(&config.Delay, "delay", time.Second, "Delay between fetches")
@@ -57,6 +59,7 @@ func main() {
 	flag.StringVar(&config.StateFile, "state", "", "State file for resume functionality (defaults to folder name)")
 	flag.StringVar(&config.PrefixFilterURL, "prefix-filter", "", "URL prefix to filter by (if not specified, no prefix filtering is applied)")
 	flag.StringVar(&excludeExtensions, "exclude-extensions", "", "Comma-separated list of asset extensions to exclude (e.g., js,css,png)")
+	flag.StringVar(&linkSelectors, "link-selectors", "", "Comma-separated list of CSS selectors to filter links (e.g., 'a.internal,.nav-link')")
 	flag.Parse()
 
 	// Parse exclude extensions
@@ -64,6 +67,14 @@ func main() {
 		config.ExcludeExtensions = strings.Split(excludeExtensions, ",")
 		for i, ext := range config.ExcludeExtensions {
 			config.ExcludeExtensions[i] = strings.TrimSpace(strings.ToLower(ext))
+		}
+	}
+
+	// Parse link selectors
+	if linkSelectors != "" {
+		config.LinkSelectors = strings.Split(linkSelectors, ",")
+		for i, selector := range config.LinkSelectors {
+			config.LinkSelectors[i] = strings.TrimSpace(selector)
 		}
 	}
 
@@ -81,7 +92,7 @@ func main() {
 		if err != nil {
 			log.Fatal("Invalid URL:", err)
 		}
-		
+
 		// Create directory name from domain and path
 		dirName := parsedURL.Host
 		if parsedURL.Path != "" && parsedURL.Path != "/" {
@@ -91,7 +102,7 @@ func main() {
 				dirName += "_" + pathPart
 			}
 		}
-		
+
 		// Sanitize directory name by removing/replacing invalid characters
 		dirName = sanitizeDirName(dirName)
 		config.OutputDir = filepath.Join("backup", dirName)

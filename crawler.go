@@ -209,7 +209,7 @@ func (c *Crawler) crawlSequential() {
 			}()
 			c.processURL(currentURLInfo.URL, currentURLInfo.Depth)
 		}()
-		
+
 		time.Sleep(c.config.Delay)
 
 		// Save state periodically
@@ -436,45 +436,55 @@ func (c *Crawler) extractAndQueueURLs(baseURL, html string, currentDepth int) {
 		return
 	}
 
-	doc.Find("a[href]").Each(func(i int, s *goquery.Selection) {
-		defer func() {
-			if r := recover(); r != nil {
-				fmt.Printf("Panic processing link in %s: %v\n", baseURL, r)
-			}
-		}()
+	// Determine which selectors to use
+	selectors := c.config.LinkSelectors
+	if len(selectors) == 0 {
+		// Default: use all links with href attribute
+		selectors = []string{"a[href]"}
+	}
 
-		href, exists := s.Attr("href")
-		if !exists {
-			return
-		}
-
-		absoluteURL, err := base.Parse(href)
-		if err != nil {
-			// Skip malformed URLs silently
-			return
-		}
-
-		urlStr := absoluteURL.String()
-
-		if c.isValidURL(urlStr) {
-			func() {
-				defer func() {
-					if r := recover(); r != nil {
-						fmt.Printf("Panic queuing URL %s: %v\n", urlStr, r)
-					}
-				}()
-				
-				c.mu.Lock()
-				defer c.mu.Unlock()
-				
-				if !c.state.Visited[urlStr] && !c.state.Queued[urlStr] {
-					// Add URL with incremented depth
-					newDepth := currentDepth + 1
-					c.state.Queue = append(c.state.Queue, URLInfo{URL: urlStr, Depth: newDepth})
-					c.state.URLDepths[urlStr] = newDepth
-					c.state.Queued[urlStr] = true
+	// Process each selector
+	for _, selector := range selectors {
+		doc.Find(selector).Each(func(i int, s *goquery.Selection) {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("Panic processing link in %s with selector %s: %v\n", baseURL, selector, r)
 				}
 			}()
-		}
-	})
+
+			href, exists := s.Attr("href")
+			if !exists {
+				return
+			}
+
+			absoluteURL, err := base.Parse(href)
+			if err != nil {
+				// Skip malformed URLs silently
+				return
+			}
+
+			urlStr := absoluteURL.String()
+
+			if c.isValidURL(urlStr) {
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							fmt.Printf("Panic queuing URL %s: %v\n", urlStr, r)
+						}
+					}()
+
+					c.mu.Lock()
+					defer c.mu.Unlock()
+
+					if !c.state.Visited[urlStr] && !c.state.Queued[urlStr] {
+						// Add URL with incremented depth
+						newDepth := currentDepth + 1
+						c.state.Queue = append(c.state.Queue, URLInfo{URL: urlStr, Depth: newDepth})
+						c.state.URLDepths[urlStr] = newDepth
+						c.state.Queued[urlStr] = true
+					}
+				}()
+			}
+		})
+	}
 }

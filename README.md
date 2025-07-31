@@ -46,7 +46,8 @@ go build -o scraper
           -output my_backup \
           -state crawler.json \
           -prefix-filter https://example.com/api \
-          -exclude-extensions js,css,png,jpg
+          -exclude-extensions js,css,png,jpg \
+          -link-selectors "a.internal,.nav-link"
 ```
 
 ### Command Line Arguments
@@ -59,6 +60,7 @@ go build -o scraper
 - `-state`: State file for resume functionality (default: "crawler_state.json")
 - `-prefix-filter`: URL prefix to filter by (if not specified, no prefix filtering is applied)
 - `-exclude-extensions`: Comma-separated list of asset extensions to exclude (e.g., js,css,png)
+- `-link-selectors`: Comma-separated list of CSS selectors to filter links (e.g., 'a.internal,.nav-link')
 
 ## How It Works
 
@@ -80,11 +82,16 @@ go build -o scraper
 
 4. **Asset Filtering**: URLs with excluded extensions (specified via `-exclude-extensions`) are skipped
 
-5. **File Storage**: Each page is saved as:
+5. **Link Selector Filtering**: Only processes links that match specified CSS selectors
+   - **Default**: Processes all links with `href` attributes (`a[href]`)
+   - **With `-link-selectors`**: Only processes links matching the specified selectors
+   - Examples: `a.internal` (links with class 'internal'), `.nav-link` (any element with class 'nav-link'), `#menu a` (links inside element with id 'menu')
+
+6. **File Storage**: Each page is saved as:
    - `{path}.html`: The actual HTML content  
    - `{path}.meta.json`: Metadata including original URL, timestamp, and size
 
-6. **Resume Capability**: State is saved periodically and can be resumed by running the same command again
+7. **Resume Capability**: State is saved periodically and can be resumed by running the same command again
 
 ## Output Structure
 
@@ -127,11 +134,17 @@ Simply run the same command again - it will automatically resume from the state 
 ./scraper -url https://example.com -prefix-filter https://api.example.com
 ```
 
+### Only follow specific link types
+```bash
+./scraper -url https://example.com -link-selectors "a.internal,.nav-link,#menu a"
+```
+
 ## Notes
 
 - The scraper uses hierarchical discovery - only URLs found through the crawling tree are processed
 - By default, no prefix filtering is applied - any domain discovered through the tree will be crawled
 - Use `-prefix-filter <url>` to limit crawling to URLs matching a specific prefix
+- Use `-link-selectors` to only follow links matching specific CSS selectors (default: all links with href)
 - Depth is measured by discovery steps, not URL path depth
 - Only HTML pages with substantial content are saved
 - Use `-exclude-extensions` to skip downloading specific asset types (js, css, images, etc.)
