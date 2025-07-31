@@ -70,6 +70,7 @@ func (c *Crawler) Start() error {
 	}
 
 	fmt.Printf("Starting crawler with %d URLs in queue\n", len(c.state.Queue))
+	fmt.Printf("Debug: Max depth set to: %d\n", c.config.MaxDepth)
 
 	if c.config.Concurrent {
 		c.crawlConcurrent()
@@ -189,15 +190,19 @@ func (c *Crawler) crawlSequential() {
 		currentURLInfo := c.state.Queue[0]
 		c.state.Queue = c.state.Queue[1:]
 
+		fmt.Printf("Debug: Queue length: %d, Processing: %s (depth %d)\n", len(c.state.Queue), currentURLInfo.URL, currentURLInfo.Depth)
+
 		// Remove from queued map
 		delete(c.state.Queued, currentURLInfo.URL)
 
 		if c.state.Visited[currentURLInfo.URL] {
+			fmt.Printf("Debug: Skipping already visited: %s\n", currentURLInfo.URL)
 			continue
 		}
 
 		// Check depth constraint
 		if currentURLInfo.Depth > c.config.MaxDepth {
+			fmt.Printf("Debug: Skipping due to depth limit (%d > %d): %s\n", currentURLInfo.Depth, c.config.MaxDepth, currentURLInfo.URL)
 			continue
 		}
 
@@ -214,59 +219,94 @@ func (c *Crawler) crawlSequential() {
 
 		// Save state periodically
 		if c.state.Processed%10 == 0 {
+			fmt.Printf("Debug: Saving state at %d processed URLs\n", c.state.Processed)
 			if err := c.saveState(); err != nil {
 				fmt.Printf("Warning: Failed to save state: %v\n", err)
 			}
 		}
 	}
+	fmt.Printf("Debug: Crawling completed. Queue is now empty.\n")
 }
 
 func (c *Crawler) crawlConcurrent() {
-	for len(c.state.Queue) > 0 {
-		currentURLInfo := c.state.Queue[0]
-		c.state.Queue = c.state.Queue[1:]
+	activeGoroutines := 0
+	
+	for {
+		// Check if we have URLs to process
+		if len(c.state.Queue) > 0 {
+			currentURLInfo := c.state.Queue[0]
+			c.state.Queue = c.state.Queue[1:]
 
-		// Remove from queued map with proper locking
-		c.mu.Lock()
-		delete(c.state.Queued, currentURLInfo.URL)
-		visited := c.state.Visited[currentURLInfo.URL]
-		c.mu.Unlock()
+			fmt.Printf("Debug: Concurrent - Queue length: %d, Processing: %s (depth %d)\n", len(c.state.Queue), currentURLInfo.URL, currentURLInfo.Depth)
 
-		if visited {
-			continue
-		}
+			// Remove from queued map with proper locking
+			c.mu.Lock()
+			delete(c.state.Queued, currentURLInfo.URL)
+			visited := c.state.Visited[currentURLInfo.URL]
+			c.mu.Unlock()
 
-		// Check depth constraint
-		if currentURLInfo.Depth > c.config.MaxDepth {
-			continue
-		}
+			if visited {
+				fmt.Printf("Debug: Concurrent - Skipping already visited: %s\n", currentURLInfo.URL)
+				continue
+			}
 
-		c.wg.Add(1)
-		c.semaphore <- struct{}{} // Acquire semaphore
+			// Check depth constraint
+			if currentURLInfo.Depth > c.config.MaxDepth {
+				fmt.Printf("Debug: Concurrent - Skipping due to depth limit (%d > %d): %s\n", currentURLInfo.Depth, c.config.MaxDepth, currentURLInfo.URL)
+				continue
+			}
 
-		go func(urlInfo URLInfo) {
-			defer c.wg.Done()
-			defer func() { <-c.semaphore }() // Release semaphore
-			defer func() {
-				if r := recover(); r != nil {
-					fmt.Printf("Recovered from panic while processing %s: %v\n", urlInfo.URL, r)
+			c.wg.Add(1)
+			activeGoroutines++
+			c.semaphore <- struct{}{} // Acquire semaphore
+
+			go func(urlInfo URLInfo) {
+				defer c.wg.Done()
+				defer func() { <-c.semaphore }() // Release semaphore
+				defer func() {
+					c.mu.Lock()
+					activeGoroutines--
+					c.mu.Unlock()
+				}()
+				defer func() {
+					if r := recover(); r != nil {
+						fmt.Printf("Recovered from panic while processing %s: %v\n", urlInfo.URL, r)
+					}
+				}()
+
+				c.processURL(urlInfo.URL, urlInfo.Depth)
+				time.Sleep(c.config.Delay)
+			}(currentURLInfo)
+
+			// Save state periodically
+			if c.state.Processed%10 == 0 {
+				fmt.Printf("Debug: Concurrent - Waiting for goroutines before saving state at %d processed URLs\n", c.state.Processed)
+				c.wg.Wait()
+				if err := c.saveState(); err != nil {
+					fmt.Printf("Warning: Failed to save state: %v\n", err)
 				}
-			}()
-
-			c.processURL(urlInfo.URL, urlInfo.Depth)
-			time.Sleep(c.config.Delay)
-		}(currentURLInfo)
-
-		// Save state periodically
-		if c.state.Processed%10 == 0 {
-			c.wg.Wait()
-			if err := c.saveState(); err != nil {
-				fmt.Printf("Warning: Failed to save state: %v\n", err)
+			}
+		} else {
+			// Queue is empty, check if we have active goroutines that might add more URLs
+			c.mu.RLock()
+			currentActiveGoroutines := activeGoroutines
+			c.mu.RUnlock()
+			
+			if currentActiveGoroutines == 0 {
+				// No more goroutines running and queue is empty - we're done
+				fmt.Printf("Debug: Concurrent - No active goroutines and empty queue, crawling completed\n")
+				break
+			} else {
+				// Wait a bit for goroutines to potentially add more URLs
+				fmt.Printf("Debug: Concurrent - Queue empty but %d goroutines still active, waiting...\n", currentActiveGoroutines)
+				time.Sleep(100 * time.Millisecond)
 			}
 		}
 	}
 
+	fmt.Printf("Debug: Concurrent - Main loop finished, waiting for remaining goroutines\n")
 	c.wg.Wait()
+	fmt.Printf("Debug: Concurrent - All goroutines finished, crawling completed\n")
 }
 
 func (c *Crawler) processURL(rawURL string, currentDepth int) {
