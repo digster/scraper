@@ -1,2 +1,2 @@
 Make sure the readme is always updated when anything relevant to the readme changes.
-Always ask beofre removing or changing any major existing functionality that is out of the scope of the request before working on it.
+Always ask before removing or changing any major existing functionality that is out of the scope of the request before working on it.
