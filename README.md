@@ -61,6 +61,7 @@ go build -o scraper
 - `-prefix-filter`: URL prefix to filter by (if not specified, no prefix filtering is applied)
 - `-exclude-extensions`: Comma-separated list of asset extensions to exclude (e.g., js,css,png)
 - `-link-selectors`: Comma-separated list of CSS selectors to filter links (e.g., 'a.internal,.nav-link')
+- `-verbose`: Enable verbose debug output (default: false)
 
 ## How It Works
 

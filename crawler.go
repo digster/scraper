@@ -1,10 +1,10 @@
 package main
 
 import (
-	// "crypto/md5"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -16,6 +16,33 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 )
+
+// Logger provides leveled logging for the crawler
+type Logger struct {
+	verbose bool
+}
+
+// Debug logs a message only if verbose mode is enabled
+func (l *Logger) Debug(format string, args ...interface{}) {
+	if l.verbose {
+		log.Printf("[DEBUG] "+format, args...)
+	}
+}
+
+// Info logs an informational message (always shown)
+func (l *Logger) Info(format string, args ...interface{}) {
+	log.Printf("[INFO] "+format, args...)
+}
+
+// Warn logs a warning message (always shown)
+func (l *Logger) Warn(format string, args ...interface{}) {
+	log.Printf("[WARN] "+format, args...)
+}
+
+// Error logs an error message (always shown)
+func (l *Logger) Error(format string, args ...interface{}) {
+	log.Printf("[ERROR] "+format, args...)
+}
 
 type URLInfo struct {
 	URL   string `json:"url"`
@@ -38,6 +65,7 @@ type Crawler struct {
 	mu        sync.RWMutex
 	wg        sync.WaitGroup
 	semaphore chan struct{}
+	log       *Logger
 }
 
 func NewCrawler(config Config) *Crawler {
@@ -46,6 +74,7 @@ func NewCrawler(config Config) *Crawler {
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		log: &Logger{verbose: config.Verbose},
 	}
 
 	if config.Concurrent {
@@ -70,8 +99,8 @@ func (c *Crawler) Start() error {
 		c.state.Queued[c.config.URL] = true
 	}
 
-	fmt.Printf("Starting crawler with %d URLs in queue\n", len(c.state.Queue))
-	fmt.Printf("Debug: Max depth set to: %d\n", c.config.MaxDepth)
+	c.log.Info("Starting crawler with %d URLs in queue", len(c.state.Queue))
+	c.log.Debug("Max depth set to: %d", c.config.MaxDepth)
 
 	if c.config.Concurrent {
 		c.crawlConcurrent()
@@ -282,26 +311,26 @@ func (c *Crawler) crawlSequential() {
 		currentURLInfo := c.state.Queue[0]
 		c.state.Queue = c.state.Queue[1:]
 
-		fmt.Printf("Debug: Queue length: %d, Processing: %s (depth %d)\n", len(c.state.Queue), currentURLInfo.URL, currentURLInfo.Depth)
+		c.log.Debug("Queue length: %d, Processing: %s (depth %d)", len(c.state.Queue), currentURLInfo.URL, currentURLInfo.Depth)
 
 		// Remove from queued map
 		delete(c.state.Queued, currentURLInfo.URL)
 
 		if c.state.Visited[currentURLInfo.URL] {
-			fmt.Printf("Debug: Skipping already visited: %s\n", currentURLInfo.URL)
+			c.log.Debug("Skipping already visited: %s", currentURLInfo.URL)
 			continue
 		}
 
 		// Check depth constraint
 		if currentURLInfo.Depth > c.config.MaxDepth {
-			fmt.Printf("Debug: Skipping due to depth limit (%d > %d): %s\n", currentURLInfo.Depth, c.config.MaxDepth, currentURLInfo.URL)
+			c.log.Debug("Skipping due to depth limit (%d > %d): %s", currentURLInfo.Depth, c.config.MaxDepth, currentURLInfo.URL)
 			continue
 		}
 
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
-					fmt.Printf("Recovered from panic while processing %s: %v\n", currentURLInfo.URL, r)
+					c.log.Error("Recovered from panic while processing %s: %v", currentURLInfo.URL, r)
 				}
 			}()
 			c.processURL(currentURLInfo.URL, currentURLInfo.Depth)
@@ -311,13 +340,13 @@ func (c *Crawler) crawlSequential() {
 
 		// Save state periodically
 		if c.state.Processed%10 == 0 {
-			fmt.Printf("Debug: Saving state at %d processed URLs\n", c.state.Processed)
+			c.log.Debug("Saving state at %d processed URLs", c.state.Processed)
 			if err := c.saveState(); err != nil {
-				fmt.Printf("Warning: Failed to save state: %v\n", err)
+				c.log.Warn("Failed to save state: %v", err)
 			}
 		}
 	}
-	fmt.Printf("Debug: Crawling completed. Queue is now empty.\n")
+	c.log.Debug("Crawling completed. Queue is now empty.")
 }
 
 func (c *Crawler) crawlConcurrent() {
@@ -329,7 +358,7 @@ func (c *Crawler) crawlConcurrent() {
 			currentURLInfo := c.state.Queue[0]
 			c.state.Queue = c.state.Queue[1:]
 
-			fmt.Printf("Debug: Concurrent - Queue length: %d, Processing: %s (depth %d)\n", len(c.state.Queue), currentURLInfo.URL, currentURLInfo.Depth)
+			c.log.Debug("Concurrent - Queue length: %d, Processing: %s (depth %d)", len(c.state.Queue), currentURLInfo.URL, currentURLInfo.Depth)
 
 			// Remove from queued map with proper locking
 			c.mu.Lock()
@@ -338,13 +367,13 @@ func (c *Crawler) crawlConcurrent() {
 			c.mu.Unlock()
 
 			if visited {
-				fmt.Printf("Debug: Concurrent - Skipping already visited: %s\n", currentURLInfo.URL)
+				c.log.Debug("Concurrent - Skipping already visited: %s", currentURLInfo.URL)
 				continue
 			}
 
 			// Check depth constraint
 			if currentURLInfo.Depth > c.config.MaxDepth {
-				fmt.Printf("Debug: Concurrent - Skipping due to depth limit (%d > %d): %s\n", currentURLInfo.Depth, c.config.MaxDepth, currentURLInfo.URL)
+				c.log.Debug("Concurrent - Skipping due to depth limit (%d > %d): %s", currentURLInfo.Depth, c.config.MaxDepth, currentURLInfo.URL)
 				continue
 			}
 
@@ -354,11 +383,11 @@ func (c *Crawler) crawlConcurrent() {
 
 			go func(urlInfo URLInfo) {
 				defer c.wg.Done()
-				defer func() { <-c.semaphore }()             // Release semaphore
-				defer func() { activeGoroutines.Add(-1) }()  // Decrement counter atomically
+				defer func() { <-c.semaphore }()            // Release semaphore
+				defer func() { activeGoroutines.Add(-1) }() // Decrement counter atomically
 				defer func() {
 					if r := recover(); r != nil {
-						fmt.Printf("Recovered from panic while processing %s: %v\n", urlInfo.URL, r)
+						c.log.Error("Recovered from panic while processing %s: %v", urlInfo.URL, r)
 					}
 				}()
 
@@ -368,10 +397,10 @@ func (c *Crawler) crawlConcurrent() {
 
 			// Save state periodically
 			if c.state.Processed%10 == 0 {
-				fmt.Printf("Debug: Concurrent - Waiting for goroutines before saving state at %d processed URLs\n", c.state.Processed)
+				c.log.Debug("Concurrent - Waiting for goroutines before saving state at %d processed URLs", c.state.Processed)
 				c.wg.Wait()
 				if err := c.saveState(); err != nil {
-					fmt.Printf("Warning: Failed to save state: %v\n", err)
+					c.log.Warn("Failed to save state: %v", err)
 				}
 			}
 		} else {
@@ -380,25 +409,25 @@ func (c *Crawler) crawlConcurrent() {
 
 			if currentActive == 0 {
 				// No more goroutines running and queue is empty - we're done
-				fmt.Printf("Debug: Concurrent - No active goroutines and empty queue, crawling completed\n")
+				c.log.Debug("Concurrent - No active goroutines and empty queue, crawling completed")
 				break
 			} else {
 				// Wait a bit for goroutines to potentially add more URLs
-				fmt.Printf("Debug: Concurrent - Queue empty but %d goroutines still active, waiting...\n", currentActive)
+				c.log.Debug("Concurrent - Queue empty but %d goroutines still active, waiting...", currentActive)
 				time.Sleep(100 * time.Millisecond)
 			}
 		}
 	}
 
-	fmt.Printf("Debug: Concurrent - Main loop finished, waiting for remaining goroutines\n")
+	c.log.Debug("Concurrent - Main loop finished, waiting for remaining goroutines")
 	c.wg.Wait()
-	fmt.Printf("Debug: Concurrent - All goroutines finished, crawling completed\n")
+	c.log.Debug("Concurrent - All goroutines finished, crawling completed")
 }
 
 func (c *Crawler) processURL(rawURL string, currentDepth int) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("Panic in processURL for %s: %v\n", rawURL, r)
+			c.log.Error("Panic in processURL for %s: %v", rawURL, r)
 		}
 	}()
 
@@ -411,11 +440,11 @@ func (c *Crawler) processURL(rawURL string, currentDepth int) {
 	c.state.Processed++
 	c.mu.Unlock()
 
-	fmt.Printf("[%d] Processing: %s\n", c.state.Processed, rawURL)
+	c.log.Info("[%d] Processing: %s", c.state.Processed, rawURL)
 
 	resp, err := c.client.Get(rawURL)
 	if err != nil {
-		fmt.Printf("Error fetching %s: %v\n", rawURL, err)
+		c.log.Error("Error fetching %s: %v", rawURL, err)
 		return
 	}
 	defer func() {
@@ -425,31 +454,31 @@ func (c *Crawler) processURL(rawURL string, currentDepth int) {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("HTTP %d for %s\n", resp.StatusCode, rawURL)
+		c.log.Debug("HTTP %d for %s", resp.StatusCode, rawURL)
 		return
 	}
 
 	// Check if content type should be excluded
 	if c.shouldExcludeByContentType(resp.Header.Get("Content-Type")) {
-		fmt.Printf("Skipping %s: excluded content type %s\n", rawURL, resp.Header.Get("Content-Type"))
+		c.log.Debug("Skipping %s: excluded content type %s", rawURL, resp.Header.Get("Content-Type"))
 		return
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("Error reading body for %s: %v\n", rawURL, err)
+		c.log.Error("Error reading body for %s: %v", rawURL, err)
 		return
 	}
 
 	// Check if page has meaningful content
 	if !c.hasContent(string(body)) {
-		fmt.Printf("Skipping %s: no meaningful content\n", rawURL)
+		c.log.Debug("Skipping %s: no meaningful content", rawURL)
 		return
 	}
 
 	// Save the content
 	if err := c.saveContent(rawURL, body); err != nil {
-		fmt.Printf("Error saving content for %s: %v\n", rawURL, err)
+		c.log.Error("Error saving content for %s: %v", rawURL, err)
 		return
 	}
 
@@ -457,7 +486,7 @@ func (c *Crawler) processURL(rawURL string, currentDepth int) {
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
-				fmt.Printf("Panic extracting URLs from %s: %v\n", rawURL, r)
+				c.log.Error("Panic extracting URLs from %s: %v", rawURL, r)
 			}
 		}()
 		c.extractAndQueueURLs(rawURL, string(body), currentDepth)
@@ -467,7 +496,7 @@ func (c *Crawler) processURL(rawURL string, currentDepth int) {
 func (c *Crawler) hasContent(html string) bool {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("Panic in hasContent: %v\n", r)
+			c.log.Error("Panic in hasContent: %v", r)
 		}
 	}()
 
@@ -576,19 +605,19 @@ func sanitizeFilenameComponent(s string) string {
 func (c *Crawler) extractAndQueueURLs(baseURL, html string, currentDepth int) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("Panic in extractAndQueueURLs for %s: %v\n", baseURL, r)
+			c.log.Error("Panic in extractAndQueueURLs for %s: %v", baseURL, r)
 		}
 	}()
 
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
 	if err != nil {
-		fmt.Printf("Error parsing HTML for %s: %v\n", baseURL, err)
+		c.log.Error("Error parsing HTML for %s: %v", baseURL, err)
 		return
 	}
 
 	base, err := url.Parse(baseURL)
 	if err != nil {
-		fmt.Printf("Error parsing base URL %s: %v\n", baseURL, err)
+		c.log.Error("Error parsing base URL %s: %v", baseURL, err)
 		return
 	}
 
@@ -604,7 +633,7 @@ func (c *Crawler) extractAndQueueURLs(baseURL, html string, currentDepth int) {
 		doc.Find(selector).Each(func(i int, s *goquery.Selection) {
 			defer func() {
 				if r := recover(); r != nil {
-					fmt.Printf("Panic processing link in %s with selector %s: %v\n", baseURL, selector, r)
+					c.log.Error("Panic processing link in %s with selector %s: %v", baseURL, selector, r)
 				}
 			}()
 
@@ -625,7 +654,7 @@ func (c *Crawler) extractAndQueueURLs(baseURL, html string, currentDepth int) {
 				func() {
 					defer func() {
 						if r := recover(); r != nil {
-							fmt.Printf("Panic queuing URL %s: %v\n", urlStr, r)
+							c.log.Error("Panic queuing URL %s: %v", urlStr, r)
 						}
 					}()
 

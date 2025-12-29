@@ -22,6 +22,7 @@ type Config struct {
 	PrefixFilterURL   string
 	ExcludeExtensions []string
 	LinkSelectors     []string
+	Verbose           bool
 }
 
 func sanitizeDirName(name string) string {
@@ -60,6 +61,7 @@ func main() {
 	flag.StringVar(&config.PrefixFilterURL, "prefix-filter", "", "URL prefix to filter by (if not specified, no prefix filtering is applied)")
 	flag.StringVar(&excludeExtensions, "exclude-extensions", "", "Comma-separated list of asset extensions to exclude (e.g., js,css,png)")
 	flag.StringVar(&linkSelectors, "link-selectors", "", "Comma-separated list of CSS selectors to filter links (e.g., 'a.internal,.nav-link')")
+	flag.BoolVar(&config.Verbose, "verbose", false, "Enable verbose debug output")
 	flag.Parse()
 
 	// Parse exclude extensions
