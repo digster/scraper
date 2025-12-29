@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -320,8 +321,8 @@ func (c *Crawler) crawlSequential() {
 }
 
 func (c *Crawler) crawlConcurrent() {
-	activeGoroutines := 0
-	
+	var activeGoroutines atomic.Int64
+
 	for {
 		// Check if we have URLs to process
 		if len(c.state.Queue) > 0 {
@@ -348,17 +349,13 @@ func (c *Crawler) crawlConcurrent() {
 			}
 
 			c.wg.Add(1)
-			activeGoroutines++
+			activeGoroutines.Add(1)
 			c.semaphore <- struct{}{} // Acquire semaphore
 
 			go func(urlInfo URLInfo) {
 				defer c.wg.Done()
-				defer func() { <-c.semaphore }() // Release semaphore
-				defer func() {
-					c.mu.Lock()
-					activeGoroutines--
-					c.mu.Unlock()
-				}()
+				defer func() { <-c.semaphore }()             // Release semaphore
+				defer func() { activeGoroutines.Add(-1) }()  // Decrement counter atomically
 				defer func() {
 					if r := recover(); r != nil {
 						fmt.Printf("Recovered from panic while processing %s: %v\n", urlInfo.URL, r)
@@ -379,17 +376,15 @@ func (c *Crawler) crawlConcurrent() {
 			}
 		} else {
 			// Queue is empty, check if we have active goroutines that might add more URLs
-			c.mu.RLock()
-			currentActiveGoroutines := activeGoroutines
-			c.mu.RUnlock()
-			
-			if currentActiveGoroutines == 0 {
+			currentActive := activeGoroutines.Load()
+
+			if currentActive == 0 {
 				// No more goroutines running and queue is empty - we're done
 				fmt.Printf("Debug: Concurrent - No active goroutines and empty queue, crawling completed\n")
 				break
 			} else {
 				// Wait a bit for goroutines to potentially add more URLs
-				fmt.Printf("Debug: Concurrent - Queue empty but %d goroutines still active, waiting...\n", currentActiveGoroutines)
+				fmt.Printf("Debug: Concurrent - Queue empty but %d goroutines still active, waiting...\n", currentActive)
 				time.Sleep(100 * time.Millisecond)
 			}
 		}
