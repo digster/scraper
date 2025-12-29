@@ -88,8 +88,9 @@ go build -o scraper
    - Examples: `a.internal` (links with class 'internal'), `.nav-link` (any element with class 'nav-link'), `#menu a` (links inside element with id 'menu')
 
 6. **File Storage**: Each page is saved as:
-   - `{path}.html`: The actual HTML content  
+   - `{path}.html`: The actual HTML content
    - `{path}.meta.json`: Metadata including original URL, timestamp, and size
+   - Query parameters are included in filenames to avoid collisions (e.g., `/articles?id=1` → `articles_id-1.html`)
 
 7. **Resume Capability**: State is saved periodically and can be resumed by running the same command again
 
@@ -97,10 +98,16 @@ go build -o scraper
 
 ```
 scraped_content/
-├── a1b2c3d4.html          # HTML content
-├── a1b2c3d4.meta.json     # Metadata
-├── e5f6g7h8.html
-├── e5f6g7h8.meta.json
+├── index.html                    # Root page
+├── index.meta.json
+├── articles.html                 # /articles
+├── articles.meta.json
+├── articles_id-1.html            # /articles?id=1
+├── articles_id-1.meta.json
+├── articles_id-2.html            # /articles?id=2
+├── articles_id-2.meta.json
+├── blog/
+│   └── posts_page-1.html         # /blog/posts?page=1
 └── ...
 ```
 

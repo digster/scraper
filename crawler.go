@@ -530,9 +530,13 @@ func (c *Crawler) saveContent(rawURL string, content []byte) error {
 
 func (c *Crawler) generateFilename(parsedURL *url.URL) string {
 	path := parsedURL.Path
+	query := parsedURL.RawQuery
 
 	// Handle root path
 	if path == "" || path == "/" {
+		if query != "" {
+			return "index_" + sanitizeFilenameComponent(query) + ".html"
+		}
 		return "index.html"
 	}
 
@@ -540,13 +544,19 @@ func (c *Crawler) generateFilename(parsedURL *url.URL) string {
 	path = strings.Trim(path, "/")
 
 	// Replace invalid characters for filenames
-	path = strings.ReplaceAll(path, ":", "_")
-	path = strings.ReplaceAll(path, "?", "_")
-	path = strings.ReplaceAll(path, "*", "_")
-	path = strings.ReplaceAll(path, "<", "_")
-	path = strings.ReplaceAll(path, ">", "_")
-	path = strings.ReplaceAll(path, "|", "_")
-	path = strings.ReplaceAll(path, "\"", "_")
+	path = sanitizeFilenameComponent(path)
+
+	// Append query parameters if present
+	if query != "" {
+		// Remove extension temporarily if present
+		ext := filepath.Ext(path)
+		if ext != "" {
+			path = strings.TrimSuffix(path, ext)
+			path += "_" + sanitizeFilenameComponent(query) + ext
+		} else {
+			path += "_" + sanitizeFilenameComponent(query)
+		}
+	}
 
 	// Add .html extension if it doesn't have an extension
 	if !strings.Contains(filepath.Base(path), ".") {
@@ -554,6 +564,20 @@ func (c *Crawler) generateFilename(parsedURL *url.URL) string {
 	}
 
 	return path
+}
+
+// sanitizeFilenameComponent replaces characters invalid in filenames
+func sanitizeFilenameComponent(s string) string {
+	s = strings.ReplaceAll(s, ":", "_")
+	s = strings.ReplaceAll(s, "?", "_")
+	s = strings.ReplaceAll(s, "*", "_")
+	s = strings.ReplaceAll(s, "<", "_")
+	s = strings.ReplaceAll(s, ">", "_")
+	s = strings.ReplaceAll(s, "|", "_")
+	s = strings.ReplaceAll(s, "\"", "_")
+	s = strings.ReplaceAll(s, "&", "_")
+	s = strings.ReplaceAll(s, "=", "-")
+	return s
 }
 
 func (c *Crawler) extractAndQueueURLs(baseURL, html string, currentDepth int) {
