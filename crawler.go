@@ -257,10 +257,8 @@ func (c *Crawler) loadState() error {
 		return err
 	}
 
-	// Initialize Queued map if it doesn't exist (backward compatibility)
-	if c.state.Queued == nil {
-		c.state.Queued = make(map[string]bool)
-		// Populate queued map from existing queue
+	// Initialize Queued map from Queue if empty (backward compatibility with old state files)
+	if len(c.state.Queued) == 0 && len(c.state.Queue) > 0 {
 		for _, urlInfo := range c.state.Queue {
 			c.state.Queued[urlInfo.URL] = true
 		}
