@@ -33,6 +33,12 @@ const (
 
 	// MinContentLength is the minimum text length (characters) for a page to be considered having meaningful content
 	MinContentLength = 100
+
+	// DefaultUserAgent is the default User-Agent header sent with requests
+	DefaultUserAgent = "Mozilla/5.0 (compatible; WebScraper/1.0; +https://github.com/user/scraper)"
+
+	// MaxRedirects is the maximum number of redirects to follow per request
+	MaxRedirects = 10
 )
 
 // Logger provides leveled logging for the crawler
@@ -87,10 +93,32 @@ type Crawler struct {
 }
 
 func NewCrawler(config Config) *Crawler {
+	// Set default user agent if not provided
+	userAgent := config.UserAgent
+	if userAgent == "" {
+		userAgent = DefaultUserAgent
+	}
+
+	// Configure HTTP transport with connection pooling
+	transport := &http.Transport{
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 10,
+		IdleConnTimeout:     90 * time.Second,
+	}
+
 	c := &Crawler{
 		config: config,
 		client: &http.Client{
-			Timeout: HTTPTimeout,
+			Timeout:   HTTPTimeout,
+			Transport: transport,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				if len(via) >= MaxRedirects {
+					return fmt.Errorf("stopped after %d redirects", MaxRedirects)
+				}
+				// Preserve User-Agent header across redirects
+				req.Header.Set("User-Agent", userAgent)
+				return nil
+			},
 		},
 		log: &Logger{verbose: config.Verbose},
 	}
@@ -100,6 +128,23 @@ func NewCrawler(config Config) *Crawler {
 	}
 
 	return c
+}
+
+// fetch performs an HTTP GET request with the configured User-Agent header
+func (c *Crawler) fetch(rawURL string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", rawURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set User-Agent header
+	userAgent := c.config.UserAgent
+	if userAgent == "" {
+		userAgent = DefaultUserAgent
+	}
+	req.Header.Set("User-Agent", userAgent)
+
+	return c.client.Do(req)
 }
 
 func (c *Crawler) Start() error {
@@ -460,7 +505,7 @@ func (c *Crawler) processURL(rawURL string, currentDepth int) {
 
 	c.log.Info("[%d] Processing: %s", c.state.Processed, rawURL)
 
-	resp, err := c.client.Get(rawURL)
+	resp, err := c.fetch(rawURL)
 	if err != nil {
 		c.log.Error("Error fetching %s: %v", rawURL, err)
 		return

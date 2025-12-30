@@ -26,6 +26,7 @@ type Config struct {
 	ExcludeExtensions []string
 	LinkSelectors     []string
 	Verbose           bool
+	UserAgent         string
 }
 
 // validateConfig checks that configuration values are valid
@@ -114,6 +115,7 @@ func main() {
 	flag.StringVar(&excludeExtensions, "exclude-extensions", "", "Comma-separated list of asset extensions to exclude (e.g., js,css,png)")
 	flag.StringVar(&linkSelectors, "link-selectors", "", "Comma-separated list of CSS selectors to filter links (e.g., 'a.internal,.nav-link')")
 	flag.BoolVar(&config.Verbose, "verbose", false, "Enable verbose debug output")
+	flag.StringVar(&config.UserAgent, "user-agent", "", "Custom User-Agent header (defaults to WebScraper/1.0)")
 	flag.Parse()
 
 	// Parse exclude extensions
