@@ -29,6 +29,8 @@ type Config struct {
 	UserAgent         string
 	IgnoreRobots      bool
 	MinContentLength  int
+	ShowProgress      bool
+	MetricsFile       string
 }
 
 // validateConfig checks that configuration values are valid
@@ -125,6 +127,8 @@ func main() {
 	flag.StringVar(&config.UserAgent, "user-agent", "", "Custom User-Agent header (defaults to WebScraper/1.0)")
 	flag.BoolVar(&config.IgnoreRobots, "ignore-robots", false, "Ignore robots.txt rules")
 	flag.IntVar(&config.MinContentLength, "min-content", 100, "Minimum text content length (characters) for a page to be saved")
+	flag.BoolVar(&config.ShowProgress, "progress", true, "Show progress bar and statistics")
+	flag.StringVar(&config.MetricsFile, "metrics-json", "", "Output final metrics to JSON file")
 	flag.Parse()
 
 	// Parse exclude extensions

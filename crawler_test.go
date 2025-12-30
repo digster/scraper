@@ -758,6 +758,166 @@ func TestValidateConfig(t *testing.T) {
 	}
 }
 
+func TestCrawlerMetrics(t *testing.T) {
+	m := NewCrawlerMetrics()
+
+	// Test initial state
+	if m.URLsProcessed != 0 {
+		t.Errorf("initial URLsProcessed = %d, want 0", m.URLsProcessed)
+	}
+
+	// Test IncrementProcessed
+	m.IncrementProcessed()
+	m.IncrementProcessed()
+	if m.URLsProcessed != 2 {
+		t.Errorf("URLsProcessed after 2 increments = %d, want 2", m.URLsProcessed)
+	}
+
+	// Test IncrementSaved
+	m.IncrementSaved(1024)
+	m.IncrementSaved(2048)
+	if m.URLsSaved != 2 {
+		t.Errorf("URLsSaved = %d, want 2", m.URLsSaved)
+	}
+	if m.BytesDownloaded != 3072 {
+		t.Errorf("BytesDownloaded = %d, want 3072", m.BytesDownloaded)
+	}
+
+	// Test IncrementErrored
+	m.IncrementErrored()
+	if m.URLsErrored != 1 {
+		t.Errorf("URLsErrored = %d, want 1", m.URLsErrored)
+	}
+
+	// Test IncrementSkipped
+	m.IncrementSkipped()
+	if m.URLsSkipped != 1 {
+		t.Errorf("URLsSkipped = %d, want 1", m.URLsSkipped)
+	}
+
+	// Test IncrementRobotsBlocked
+	m.IncrementRobotsBlocked()
+	if m.RobotsBlocked != 1 {
+		t.Errorf("RobotsBlocked = %d, want 1", m.RobotsBlocked)
+	}
+
+	// Test IncrementDepthLimitHits
+	m.IncrementDepthLimitHits()
+	if m.DepthLimitHits != 1 {
+		t.Errorf("DepthLimitHits = %d, want 1", m.DepthLimitHits)
+	}
+
+	// Test IncrementContentFiltered
+	m.IncrementContentFiltered()
+	if m.ContentFiltered != 1 {
+		t.Errorf("ContentFiltered = %d, want 1", m.ContentFiltered)
+	}
+
+	// Test SetQueueSize
+	m.SetQueueSize(42)
+	if m.QueueSize != 42 {
+		t.Errorf("QueueSize = %d, want 42", m.QueueSize)
+	}
+
+	// Test GetSnapshot
+	snapshot := m.GetSnapshot()
+	if snapshot.URLsProcessed != 2 {
+		t.Errorf("snapshot.URLsProcessed = %d, want 2", snapshot.URLsProcessed)
+	}
+
+	// Test Finalize
+	m.Finalize()
+	if m.EndTime.IsZero() {
+		t.Error("EndTime should be set after Finalize")
+	}
+	if m.Duration <= 0 {
+		t.Error("Duration should be positive after Finalize")
+	}
+}
+
+func TestMetricsJSONOutput(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "metrics_test")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	m := NewCrawlerMetrics()
+	m.IncrementProcessed()
+	m.IncrementSaved(1024)
+	m.SetQueueSize(5)
+
+	metricsFile := filepath.Join(tmpDir, "metrics.json")
+	err = m.WriteJSON(metricsFile)
+	if err != nil {
+		t.Fatalf("WriteJSON failed: %v", err)
+	}
+
+	// Verify file was created
+	if _, err := os.Stat(metricsFile); os.IsNotExist(err) {
+		t.Fatal("metrics file was not created")
+	}
+
+	// Read and verify content
+	data, err := os.ReadFile(metricsFile)
+	if err != nil {
+		t.Fatalf("failed to read metrics file: %v", err)
+	}
+
+	content := string(data)
+	if !strings.Contains(content, "\"urls_processed\": 1") {
+		t.Error("metrics JSON should contain urls_processed: 1")
+	}
+	if !strings.Contains(content, "\"urls_saved\": 1") {
+		t.Error("metrics JSON should contain urls_saved: 1")
+	}
+	if !strings.Contains(content, "\"bytes_downloaded\": 1024") {
+		t.Error("metrics JSON should contain bytes_downloaded: 1024")
+	}
+}
+
+func TestFormatBytes(t *testing.T) {
+	tests := []struct {
+		bytes    int64
+		expected string
+	}{
+		{0, "0 B"},
+		{500, "500 B"},
+		{1024, "1.0 KB"},
+		{1536, "1.5 KB"},
+		{1048576, "1.0 MB"},
+		{1572864, "1.5 MB"},
+		{1073741824, "1.0 GB"},
+	}
+
+	for _, tt := range tests {
+		result := formatBytes(tt.bytes)
+		if result != tt.expected {
+			t.Errorf("formatBytes(%d) = %q, want %q", tt.bytes, result, tt.expected)
+		}
+	}
+}
+
+func TestFormatDuration(t *testing.T) {
+	tests := []struct {
+		duration time.Duration
+		expected string
+	}{
+		{0, "00:00:00"},
+		{30 * time.Second, "00:00:30"},
+		{90 * time.Second, "00:01:30"},
+		{3661 * time.Second, "01:01:01"},
+		{86400 * time.Second, "24:00:00"},
+	}
+
+	for _, tt := range tests {
+		result := formatDuration(tt.duration)
+		if result != tt.expected {
+			t.Errorf("formatDuration(%v) = %q, want %q", tt.duration, result, tt.expected)
+		}
+	}
+}
+
 func TestSanitizeDirName(t *testing.T) {
 	tests := []struct {
 		name     string

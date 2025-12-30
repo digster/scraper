@@ -22,6 +22,8 @@ Ask any clarifying questions if needed.
 - **Content Validation**: Only saves pages with meaningful content (>100 characters of text)
 - **Resume Functionality**: Automatically resumes from where it left off if interrupted
 - **State Persistence**: Saves crawling state to JSON file for resumption
+- **Progress Display**: Real-time progress bar with statistics (pages/second, queue size, etc.)
+- **Metrics Export**: Optional JSON export of crawl statistics
 
 ## Installation
 
@@ -65,6 +67,8 @@ go build -o scraper
 - `-user-agent`: Custom User-Agent header for HTTP requests (default: WebScraper/1.0)
 - `-ignore-robots`: Ignore robots.txt rules (default: false)
 - `-min-content`: Minimum text content length (characters) for a page to be saved (default: 100)
+- `-progress`: Show progress bar and statistics (default: true)
+- `-metrics-json`: Output final metrics to JSON file (optional)
 
 ## How It Works
 
@@ -148,6 +152,16 @@ Simply run the same command again - it will automatically resume from the state 
 ### Only follow specific link types
 ```bash
 ./scraper -url https://example.com -link-selectors "a.internal,.nav-link,#menu a"
+```
+
+### Export metrics to JSON
+```bash
+./scraper -url https://example.com -metrics-json crawl_metrics.json
+```
+
+### Run without progress display
+```bash
+./scraper -url https://example.com -progress=false
 ```
 
 ## Notes

@@ -78,6 +78,7 @@ type Crawler struct {
 	log         *Logger
 	robotsCache map[string]*robotstxt.RobotsData
 	robotsMu    sync.RWMutex
+	metrics     *CrawlerMetrics
 }
 
 // NewCrawler creates a new Crawler instance with the given configuration
@@ -111,6 +112,7 @@ func NewCrawler(config Config) *Crawler {
 		},
 		log:         &Logger{verbose: config.Verbose},
 		robotsCache: make(map[string]*robotstxt.RobotsData),
+		metrics:     NewCrawlerMetrics(),
 	}
 
 	if config.Concurrent {
@@ -251,6 +253,20 @@ func (c *Crawler) Start() error {
 		c.crawlSequential()
 	}
 
+	// Display final summary if progress is enabled
+	if c.config.ShowProgress {
+		c.metrics.DisplayFinalSummary()
+	}
+
+	// Write metrics to JSON if requested
+	if c.config.MetricsFile != "" {
+		if err := c.metrics.WriteJSON(c.config.MetricsFile); err != nil {
+			c.log.Error("Failed to write metrics: %v", err)
+		} else {
+			c.log.Info("Metrics written to %s", c.config.MetricsFile)
+		}
+	}
+
 	return c.saveState()
 }
 
@@ -259,6 +275,9 @@ func (c *Crawler) crawlSequential() {
 		currentURLInfo := c.state.Queue[0]
 		c.state.Queue = c.state.Queue[1:]
 
+		// Update metrics queue size
+		c.metrics.SetQueueSize(len(c.state.Queue))
+
 		c.log.Debug("Queue length: %d, Processing: %s (depth %d)", len(c.state.Queue), currentURLInfo.URL, currentURLInfo.Depth)
 
 		// Remove from queued map
@@ -266,12 +285,14 @@ func (c *Crawler) crawlSequential() {
 
 		if c.state.Visited[currentURLInfo.URL] {
 			c.log.Debug("Skipping already visited: %s", currentURLInfo.URL)
+			c.metrics.IncrementSkipped()
 			continue
 		}
 
 		// Check depth constraint
 		if currentURLInfo.Depth > c.config.MaxDepth {
 			c.log.Debug("Skipping due to depth limit (%d > %d): %s", currentURLInfo.Depth, c.config.MaxDepth, currentURLInfo.URL)
+			c.metrics.IncrementDepthLimitHits()
 			continue
 		}
 
@@ -279,10 +300,16 @@ func (c *Crawler) crawlSequential() {
 			defer func() {
 				if r := recover(); r != nil {
 					c.log.Error("Recovered from panic while processing %s: %v", currentURLInfo.URL, r)
+					c.metrics.IncrementErrored()
 				}
 			}()
 			c.processURL(currentURLInfo.URL, currentURLInfo.Depth)
 		}()
+
+		// Display progress if enabled
+		if c.config.ShowProgress && c.metrics.ShouldDisplay() {
+			c.metrics.DisplayProgress(c.config.Verbose)
+		}
 
 		time.Sleep(c.config.Delay)
 
@@ -306,6 +333,9 @@ func (c *Crawler) crawlConcurrent() {
 			currentURLInfo := c.state.Queue[0]
 			c.state.Queue = c.state.Queue[1:]
 
+			// Update metrics queue size
+			c.metrics.SetQueueSize(len(c.state.Queue))
+
 			c.log.Debug("Concurrent - Queue length: %d, Processing: %s (depth %d)", len(c.state.Queue), currentURLInfo.URL, currentURLInfo.Depth)
 
 			// Remove from queued map with proper locking
@@ -316,12 +346,14 @@ func (c *Crawler) crawlConcurrent() {
 
 			if visited {
 				c.log.Debug("Concurrent - Skipping already visited: %s", currentURLInfo.URL)
+				c.metrics.IncrementSkipped()
 				continue
 			}
 
 			// Check depth constraint
 			if currentURLInfo.Depth > c.config.MaxDepth {
 				c.log.Debug("Concurrent - Skipping due to depth limit (%d > %d): %s", currentURLInfo.Depth, c.config.MaxDepth, currentURLInfo.URL)
+				c.metrics.IncrementDepthLimitHits()
 				continue
 			}
 
@@ -336,12 +368,18 @@ func (c *Crawler) crawlConcurrent() {
 				defer func() {
 					if r := recover(); r != nil {
 						c.log.Error("Recovered from panic while processing %s: %v", urlInfo.URL, r)
+						c.metrics.IncrementErrored()
 					}
 				}()
 
 				c.processURL(urlInfo.URL, urlInfo.Depth)
 				time.Sleep(c.config.Delay)
 			}(currentURLInfo)
+
+			// Display progress if enabled
+			if c.config.ShowProgress && c.metrics.ShouldDisplay() {
+				c.metrics.DisplayProgress(c.config.Verbose)
+			}
 
 			// Save state periodically
 			if c.state.Processed%StateSaveInterval == 0 {
@@ -376,6 +414,7 @@ func (c *Crawler) processURL(rawURL string, currentDepth int) {
 	defer func() {
 		if r := recover(); r != nil {
 			c.log.Error("Panic in processURL for %s: %v", rawURL, r)
+			c.metrics.IncrementErrored()
 		}
 	}()
 
@@ -388,17 +427,20 @@ func (c *Crawler) processURL(rawURL string, currentDepth int) {
 	c.state.Processed++
 	c.mu.Unlock()
 
+	c.metrics.IncrementProcessed()
 	c.log.Info("[%d] Processing: %s", c.state.Processed, rawURL)
 
 	// Check robots.txt before fetching
 	if !c.isAllowedByRobots(rawURL) {
 		c.log.Debug("Blocked by robots.txt: %s", rawURL)
+		c.metrics.IncrementRobotsBlocked()
 		return
 	}
 
 	resp, err := c.fetch(rawURL)
 	if err != nil {
 		c.log.Error("Error fetching %s: %v", rawURL, err)
+		c.metrics.IncrementErrored()
 		return
 	}
 	defer func() {
@@ -409,32 +451,39 @@ func (c *Crawler) processURL(rawURL string, currentDepth int) {
 
 	if resp.StatusCode != http.StatusOK {
 		c.log.Debug("HTTP %d for %s", resp.StatusCode, rawURL)
+		c.metrics.IncrementErrored()
 		return
 	}
 
 	// Check if content type should be excluded
 	if c.shouldExcludeByContentType(resp.Header.Get("Content-Type")) {
 		c.log.Debug("Skipping %s: excluded content type %s", rawURL, resp.Header.Get("Content-Type"))
+		c.metrics.IncrementContentFiltered()
 		return
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		c.log.Error("Error reading body for %s: %v", rawURL, err)
+		c.metrics.IncrementErrored()
 		return
 	}
 
 	// Check if page has meaningful content
 	if !c.hasContent(string(body)) {
 		c.log.Debug("Skipping %s: no meaningful content", rawURL)
+		c.metrics.IncrementContentFiltered()
 		return
 	}
 
 	// Save the content
 	if err := c.saveContent(rawURL, body); err != nil {
 		c.log.Error("Error saving content for %s: %v", rawURL, err)
+		c.metrics.IncrementErrored()
 		return
 	}
+
+	c.metrics.IncrementSaved(int64(len(body)))
 
 	// Extract and queue new URLs - wrap in error handling
 	func() {
