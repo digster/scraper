@@ -16,6 +16,8 @@ Ask any clarifying questions if needed.
 
 - **Hierarchical Crawling**: Only crawls URLs discovered from the input URL and its children (tree-based discovery)
 - **Depth Control**: Respects maximum crawl depth based on discovery hierarchy
+- **Multiple Fetch Modes**: Choose between HTTP client or real browser (Chrome/Chromium) for fetching
+- **Browser Mode**: Use a real browser via chromedp to bypass anti-bot protection (headless or visible)
 - **Asset Filtering**: Exclude specific file extensions (js, css, images, etc.) from being downloaded
 - **Concurrent/Sequential Mode**: Choose between concurrent or sequential crawling
 - **Configurable Delays**: Set delays between fetches to be respectful to servers
@@ -113,6 +115,8 @@ Simply run the built application or use `wails dev` for development. All options
 - `-no-readability`: Disable readability content extraction (enabled by default)
 - `-progress`: Show progress bar and statistics (default: true)
 - `-metrics-json`: Output final metrics to JSON file (optional)
+- `-fetch-mode`: Fetch mode - 'http' for standard HTTP client, 'browser' for real Chrome browser (default: http)
+- `-headless`: Run browser in headless mode when using browser fetch mode (default: true)
 
 ## How It Works
 
@@ -235,6 +239,42 @@ Simply run the same command again - it will automatically resume from the state 
 ```bash
 ./scraper -url https://example.com -progress=false
 ```
+
+### Use browser-based fetching (for anti-bot protected sites)
+```bash
+# Headless browser mode (default)
+./scraper -url https://example.com -fetch-mode browser
+
+# Visible browser window (useful for debugging or CAPTCHA solving)
+./scraper -url https://example.com -fetch-mode browser -headless=false
+```
+
+## Fetch Modes
+
+The scraper supports two fetching modes:
+
+### HTTP Mode (Default)
+Uses Go's standard HTTP client for fetching pages. This is fast and lightweight but may be blocked by sites with anti-bot protection.
+
+```bash
+./scraper -url https://example.com -fetch-mode http
+```
+
+### Browser Mode
+Uses a real Chrome/Chromium browser via chromedp. This renders JavaScript and behaves like a real browser, helping bypass anti-bot measures.
+
+```bash
+# Headless (no visible window)
+./scraper -url https://example.com -fetch-mode browser
+
+# With visible browser window
+./scraper -url https://example.com -fetch-mode browser -headless=false
+```
+
+**Requirements for Browser Mode:**
+- Chrome or Chromium must be installed on the system
+- More resource-intensive than HTTP mode
+- Useful when sites block non-browser user agents
 
 ## Notes
 

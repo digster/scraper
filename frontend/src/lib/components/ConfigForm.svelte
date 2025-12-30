@@ -101,6 +101,30 @@
     </div>
   </div>
 
+  <div class="form-group fetch-mode-group">
+    <label for="fetchMode">Fetch Mode</label>
+    <div class="fetch-mode-row">
+      <select
+        id="fetchMode"
+        bind:value={config.fetchMode}
+        disabled={status !== 'stopped'}
+      >
+        <option value="http">HTTP Client</option>
+        <option value="browser">Browser (Chrome)</option>
+      </select>
+      {#if config.fetchMode === 'browser'}
+        <label class="headless-toggle">
+          <input
+            type="checkbox"
+            bind:checked={config.headless}
+            disabled={status !== 'stopped'}
+          />
+          Headless
+        </label>
+      {/if}
+    </div>
+  </div>
+
   <div class="checkbox-group">
     <label>
       <input type="checkbox" bind:checked={config.concurrent} disabled={status !== 'stopped'} />
@@ -312,5 +336,50 @@
     margin-top: 16px;
     padding-top: 16px;
     border-top: 1px solid #2a3f5f;
+  }
+
+  .fetch-mode-group {
+    margin-bottom: 16px;
+  }
+
+  .fetch-mode-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  select {
+    padding: 8px 12px;
+    border: 1px solid #2a3f5f;
+    border-radius: 4px;
+    background: #0f0f23;
+    color: #fff;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+
+  select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  select:focus {
+    outline: none;
+    border-color: #4a9eff;
+  }
+
+  .headless-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #ccc;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+
+  .headless-toggle input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
   }
 </style>

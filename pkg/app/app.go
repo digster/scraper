@@ -51,6 +51,8 @@ type CrawlConfig struct {
 	IgnoreRobots       bool   `json:"ignoreRobots"`
 	MinContentLength   int    `json:"minContent"`
 	DisableReadability bool   `json:"disableReadability"`
+	FetchMode          string `json:"fetchMode"`
+	Headless           bool   `json:"headless"`
 }
 
 // StartCrawl starts the crawler with the given configuration
@@ -68,6 +70,12 @@ func (a *App) StartCrawl(cfg CrawlConfig) error {
 		delay = time.Second // Default to 1 second
 	}
 
+	// Determine fetch mode
+	fetchMode := crawler.FetchModeHTTP
+	if cfg.FetchMode == "browser" {
+		fetchMode = crawler.FetchModeBrowser
+	}
+
 	// Build config
 	config := crawler.Config{
 		URL:                cfg.URL,
@@ -83,6 +91,8 @@ func (a *App) StartCrawl(cfg CrawlConfig) error {
 		MinContentLength:   cfg.MinContentLength,
 		ShowProgress:       false, // GUI handles progress display
 		DisableReadability: cfg.DisableReadability,
+		FetchMode:          fetchMode,
+		Headless:           cfg.Headless,
 	}
 
 	// Parse exclude extensions
@@ -123,13 +133,19 @@ func (a *App) StartCrawl(cfg CrawlConfig) error {
 	a.cancel = cancel
 
 	// Create crawler with event emitter
-	a.crawler = crawler.NewCrawlerWithEmitter(config, ctx, a)
+	c, err := crawler.NewCrawlerWithEmitter(config, ctx, a)
+	if err != nil {
+		cancel()
+		return fmt.Errorf("failed to create crawler: %w", err)
+	}
+	a.crawler = c
 	a.running = true
 
 	// Start crawling in background
 	go func() {
 		defer func() {
 			a.mu.Lock()
+			a.crawler.Close()
 			a.running = false
 			a.crawler = nil
 			a.mu.Unlock()

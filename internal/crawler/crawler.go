@@ -51,7 +51,7 @@ type Logger struct {
 func (l *Logger) Debug(format string, args ...interface{}) {
 	if l.verbose {
 		msg := fmt.Sprintf(format, args...)
-		log.Printf("[DEBUG] " + msg)
+		log.Printf("[DEBUG] %s", msg)
 		EmitLog(l.emitter, "debug", msg)
 	}
 }
@@ -59,82 +59,107 @@ func (l *Logger) Debug(format string, args ...interface{}) {
 // Info logs an informational message (always shown)
 func (l *Logger) Info(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	log.Printf("[INFO] " + msg)
+	log.Printf("[INFO] %s", msg)
 	EmitLog(l.emitter, "info", msg)
 }
 
 // Warn logs a warning message (always shown)
 func (l *Logger) Warn(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	log.Printf("[WARN] " + msg)
+	log.Printf("[WARN] %s", msg)
 	EmitLog(l.emitter, "warn", msg)
 }
 
 // Error logs an error message (always shown)
 func (l *Logger) Error(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	log.Printf("[ERROR] " + msg)
+	log.Printf("[ERROR] %s", msg)
 	EmitLog(l.emitter, "error", msg)
 }
 
 // Crawler handles web crawling operations
 type Crawler struct {
-	config      Config
-	state       *CrawlerState
-	client      *http.Client
-	mu          sync.RWMutex
-	wg          sync.WaitGroup
-	semaphore   chan struct{}
-	log         *Logger
-	robotsCache map[string]*robotstxt.RobotsData
-	robotsMu    sync.RWMutex
-	metrics     *CrawlerMetrics
-	ctx         context.Context
-	cancel      context.CancelFunc
-	emitter     EventEmitter
-	paused      bool
-	pauseMu     sync.Mutex
-	pauseCond   *sync.Cond
+	config       Config
+	state        *CrawlerState
+	fetcher      Fetcher
+	robotsClient *http.Client // Separate client for robots.txt (always HTTP)
+	mu           sync.RWMutex
+	wg           sync.WaitGroup
+	semaphore    chan struct{}
+	log          *Logger
+	robotsCache  map[string]*robotstxt.RobotsData
+	robotsMu     sync.RWMutex
+	metrics      *CrawlerMetrics
+	ctx          context.Context
+	cancel       context.CancelFunc
+	emitter      EventEmitter
+	paused       bool
+	pauseMu      sync.Mutex
+	pauseCond    *sync.Cond
 }
 
 // NewCrawler creates a new Crawler instance with the given configuration
-func NewCrawler(config Config, ctx context.Context) *Crawler {
+func NewCrawler(config Config, ctx context.Context) (*Crawler, error) {
 	return NewCrawlerWithEmitter(config, ctx, nil)
 }
 
 // NewCrawlerWithEmitter creates a new Crawler instance with event emission capability
-func NewCrawlerWithEmitter(config Config, ctx context.Context, emitter EventEmitter) *Crawler {
+func NewCrawlerWithEmitter(config Config, ctx context.Context, emitter EventEmitter) (*Crawler, error) {
 	// Set default user agent if not provided
 	userAgent := config.UserAgent
 	if userAgent == "" {
 		userAgent = DefaultUserAgent
 	}
 
-	// Configure HTTP transport with connection pooling
-	transport := &http.Transport{
-		MaxIdleConns:        100,
-		MaxIdleConnsPerHost: 10,
-		IdleConnTimeout:     90 * time.Second,
+	// Set default fetch mode
+	if config.FetchMode == "" {
+		config.FetchMode = FetchModeHTTP
 	}
 
 	// Create a child context so we can cancel it independently
 	crawlerCtx, cancel := context.WithCancel(ctx)
 
+	// Create the appropriate fetcher based on config
+	var fetcher Fetcher
+	var err error
+
+	logger := &Logger{verbose: config.Verbose, emitter: emitter}
+
+	switch config.FetchMode {
+	case FetchModeBrowser:
+		logger.Info("Using browser-based fetching (headless=%v)", config.Headless)
+		fetcher, err = NewBrowserFetcherWithUserAgent(config.Headless, userAgent)
+		if err != nil {
+			cancel()
+			return nil, fmt.Errorf("failed to create browser fetcher: %w", err)
+		}
+	default:
+		logger.Info("Using HTTP-based fetching")
+		fetcher = NewHTTPFetcher()
+	}
+
+	// Configure HTTP transport for robots.txt fetching (always HTTP)
+	robotsTransport := &http.Transport{
+		MaxIdleConns:        10,
+		MaxIdleConnsPerHost: 5,
+		IdleConnTimeout:     30 * time.Second,
+	}
+
 	c := &Crawler{
-		config: config,
-		client: &http.Client{
+		config:  config,
+		fetcher: fetcher,
+		robotsClient: &http.Client{
 			Timeout:   HTTPTimeout,
-			Transport: transport,
+			Transport: robotsTransport,
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				if len(via) >= MaxRedirects {
 					return fmt.Errorf("stopped after %d redirects", MaxRedirects)
 				}
-				// Preserve User-Agent header across redirects
 				req.Header.Set("User-Agent", userAgent)
 				return nil
 			},
 		},
-		log:         &Logger{verbose: config.Verbose, emitter: emitter},
+		log:         logger,
 		robotsCache: make(map[string]*robotstxt.RobotsData),
 		metrics:     NewCrawlerMetrics(),
 		ctx:         crawlerCtx,
@@ -148,7 +173,7 @@ func NewCrawlerWithEmitter(config Config, ctx context.Context, emitter EventEmit
 		c.semaphore = make(chan struct{}, MaxConcurrentRequests)
 	}
 
-	return c
+	return c, nil
 }
 
 // GetMetrics returns the current metrics
@@ -195,6 +220,14 @@ func (c *Crawler) Stop() {
 	EmitStateChange(c.emitter, EventCrawlStopped)
 }
 
+// Close releases resources held by the crawler
+func (c *Crawler) Close() error {
+	if c.fetcher != nil {
+		return c.fetcher.Close()
+	}
+	return nil
+}
+
 // checkPaused checks if crawler is paused and waits
 func (c *Crawler) checkPaused() {
 	c.pauseMu.Lock()
@@ -214,8 +247,8 @@ func (c *Crawler) isShuttingDown() bool {
 	}
 }
 
-// fetch performs an HTTP GET request with the configured User-Agent header
-func (c *Crawler) fetch(rawURL string) (*http.Response, error) {
+// fetchRobots performs an HTTP GET request for robots.txt
+func (c *Crawler) fetchRobots(rawURL string) (*http.Response, error) {
 	req, err := http.NewRequest("GET", rawURL, nil)
 	if err != nil {
 		return nil, err
@@ -228,7 +261,7 @@ func (c *Crawler) fetch(rawURL string) (*http.Response, error) {
 	}
 	req.Header.Set("User-Agent", userAgent)
 
-	return c.client.Do(req)
+	return c.robotsClient.Do(req)
 }
 
 // getRobots fetches and caches robots.txt for a given host
@@ -244,7 +277,7 @@ func (c *Crawler) getRobots(host string, scheme string) *robotstxt.RobotsData {
 
 	// Fetch robots.txt
 	robotsURL := fmt.Sprintf("%s://%s/robots.txt", scheme, host)
-	resp, err := c.fetch(robotsURL)
+	resp, err := c.fetchRobots(robotsURL)
 	if err != nil {
 		c.log.Debug("Failed to fetch robots.txt for %s: %v", host, err)
 		// Cache nil to avoid repeated failed fetches
@@ -563,37 +596,33 @@ func (c *Crawler) processURL(rawURL string, currentDepth int) {
 		return
 	}
 
-	resp, err := c.fetch(rawURL)
+	// Get user agent for fetcher
+	userAgent := c.config.UserAgent
+	if userAgent == "" {
+		userAgent = DefaultUserAgent
+	}
+
+	result, err := c.fetcher.Fetch(rawURL, userAgent)
 	if err != nil {
 		c.log.Error("Error fetching %s: %v", rawURL, err)
 		c.metrics.IncrementErrored()
 		return
 	}
-	defer func() {
-		if resp != nil && resp.Body != nil {
-			resp.Body.Close()
-		}
-	}()
 
-	if resp.StatusCode != http.StatusOK {
-		c.log.Debug("HTTP %d for %s", resp.StatusCode, rawURL)
+	if result.StatusCode != http.StatusOK {
+		c.log.Debug("HTTP %d for %s", result.StatusCode, rawURL)
 		c.metrics.IncrementErrored()
 		return
 	}
 
 	// Check if content type should be excluded
-	if c.shouldExcludeByContentType(resp.Header.Get("Content-Type")) {
-		c.log.Debug("Skipping %s: excluded content type %s", rawURL, resp.Header.Get("Content-Type"))
+	if c.shouldExcludeByContentType(result.ContentType) {
+		c.log.Debug("Skipping %s: excluded content type %s", rawURL, result.ContentType)
 		c.metrics.IncrementContentFiltered()
 		return
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		c.log.Error("Error reading body for %s: %v", rawURL, err)
-		c.metrics.IncrementErrored()
-		return
-	}
+	body := result.Body
 
 	// Check if page has meaningful content
 	if !c.hasContent(string(body)) {

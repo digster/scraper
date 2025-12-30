@@ -46,6 +46,8 @@ function createConfigStore() {
         userAgent: '',
         ignoreRobots: false,
         minContent: 100,
+        fetchMode: 'http',
+        headless: true,
     });
 
     return {
@@ -65,6 +67,8 @@ function createConfigStore() {
             userAgent: '',
             ignoreRobots: false,
             minContent: 100,
+            fetchMode: 'http',
+            headless: true,
         }),
     };
 }

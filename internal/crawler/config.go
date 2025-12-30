@@ -13,6 +13,16 @@ import (
 // MaxDirNameLength is the maximum length for directory names to avoid filesystem issues
 const MaxDirNameLength = 100
 
+// FetchMode determines how pages are fetched
+type FetchMode string
+
+const (
+	// FetchModeHTTP uses standard HTTP client for fetching (default)
+	FetchModeHTTP FetchMode = "http"
+	// FetchModeBrowser uses a real browser via chromedp for fetching
+	FetchModeBrowser FetchMode = "browser"
+)
+
 // Config holds all configuration options for the crawler
 type Config struct {
 	URL                string
@@ -31,6 +41,8 @@ type Config struct {
 	ShowProgress       bool
 	MetricsFile        string
 	DisableReadability bool
+	FetchMode          FetchMode
+	Headless           bool
 }
 
 // ValidateConfig checks that configuration values are valid
@@ -66,6 +78,11 @@ func ValidateConfig(config *Config) error {
 	// Validate MinContentLength
 	if config.MinContentLength < 0 {
 		return fmt.Errorf("min-content cannot be negative, got: %d", config.MinContentLength)
+	}
+
+	// Validate FetchMode
+	if config.FetchMode != "" && config.FetchMode != FetchModeHTTP && config.FetchMode != FetchModeBrowser {
+		return fmt.Errorf("fetch-mode must be 'http' or 'browser', got: %s", config.FetchMode)
 	}
 
 	// Validate PrefixFilterURL if provided

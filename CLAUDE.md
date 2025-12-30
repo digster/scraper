@@ -6,4 +6,6 @@ Always try and add tests for new features whenever possible.
 
 Always run tests after changes, to test integrity.
 
+As this app has a GUI, all the features and functionality should have parity with the gui app as well.
+
 Always ask before removing or changing any major existing functionality that is out of the scope of the request before working on it.

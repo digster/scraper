@@ -476,7 +476,11 @@ func TestStatePersistence(t *testing.T) {
 		StateFile: stateFile,
 		MaxDepth:  10,
 	}
-	c := NewCrawler(config, ctx)
+	c, err := NewCrawler(config, ctx)
+	if err != nil {
+		t.Fatalf("failed to create crawler: %v", err)
+	}
+	defer c.Close()
 
 	// Initialize fresh state
 	state, err := LoadState(stateFile, config.URL)
@@ -974,7 +978,11 @@ func TestPauseResume(t *testing.T) {
 		URL:      "https://example.com",
 		MaxDepth: 10,
 	}
-	c := NewCrawler(config, ctx)
+	c, err := NewCrawler(config, ctx)
+	if err != nil {
+		t.Fatalf("failed to create crawler: %v", err)
+	}
+	defer c.Close()
 
 	// Initially not paused
 	if c.IsPaused() {
@@ -1000,7 +1008,11 @@ func TestExtractReadableContent(t *testing.T) {
 		URL:      "https://example.com",
 		MaxDepth: 10,
 	}
-	c := NewCrawler(config, ctx)
+	c, err := NewCrawler(config, ctx)
+	if err != nil {
+		t.Fatalf("failed to create crawler: %v", err)
+	}
+	defer c.Close()
 
 	tests := []struct {
 		name           string
@@ -1091,10 +1103,14 @@ func TestSaveContentWithReadability(t *testing.T) {
 			OutputDir:          filepath.Join(tmpDir, "with_readability"),
 			DisableReadability: false,
 		}
-		c := NewCrawler(config, ctx)
+		c, err := NewCrawler(config, ctx)
+		if err != nil {
+			t.Fatalf("failed to create crawler: %v", err)
+		}
+		defer c.Close()
 		c.log = &Logger{verbose: false}
 
-		err := os.MkdirAll(config.OutputDir, 0755)
+		err = os.MkdirAll(config.OutputDir, 0755)
 		if err != nil {
 			t.Fatalf("failed to create output dir: %v", err)
 		}
@@ -1134,10 +1150,14 @@ func TestSaveContentWithReadability(t *testing.T) {
 			OutputDir:          filepath.Join(tmpDir, "without_readability"),
 			DisableReadability: true,
 		}
-		c := NewCrawler(config, ctx)
+		c, err := NewCrawler(config, ctx)
+		if err != nil {
+			t.Fatalf("failed to create crawler: %v", err)
+		}
+		defer c.Close()
 		c.log = &Logger{verbose: false}
 
-		err := os.MkdirAll(config.OutputDir, 0755)
+		err = os.MkdirAll(config.OutputDir, 0755)
 		if err != nil {
 			t.Fatalf("failed to create output dir: %v", err)
 		}

@@ -15,6 +15,7 @@ func main() {
 	var config crawler.Config
 	var excludeExtensions string
 	var linkSelectors string
+	var fetchMode string
 
 	flag.StringVar(&config.URL, "url", "", "Starting URL to scrape")
 	flag.BoolVar(&config.Concurrent, "concurrent", false, "Run in concurrent mode")
@@ -32,7 +33,12 @@ func main() {
 	flag.BoolVar(&config.ShowProgress, "progress", true, "Show progress bar and statistics")
 	flag.StringVar(&config.MetricsFile, "metrics-json", "", "Output final metrics to JSON file")
 	flag.BoolVar(&config.DisableReadability, "no-readability", false, "Disable readability content extraction (extracts main article content by default)")
+	flag.StringVar(&fetchMode, "fetch-mode", "http", "Fetch mode: 'http' for standard HTTP client, 'browser' for real browser via chromedp")
+	flag.BoolVar(&config.Headless, "headless", true, "Run browser in headless mode (only applies when fetch-mode=browser)")
 	flag.Parse()
+
+	// Set fetch mode
+	config.FetchMode = crawler.FetchMode(fetchMode)
 
 	// Parse exclude extensions
 	if excludeExtensions != "" {
@@ -69,7 +75,12 @@ func main() {
 	ctx, cancel := crawler.SetupSignalHandler()
 	defer cancel()
 
-	c := crawler.NewCrawler(config, ctx)
+	c, err := crawler.NewCrawler(config, ctx)
+	if err != nil {
+		log.Fatal("Failed to create crawler:", err)
+	}
+	defer c.Close()
+
 	if err := c.Start(); err != nil {
 		log.Fatal(err)
 	}
