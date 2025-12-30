@@ -160,10 +160,19 @@
         <input
           type="text"
           id="userAgent"
+          list="userAgentOptions"
           bind:value={config.userAgent}
           placeholder="Default WebScraper/1.0"
           disabled={status !== 'stopped'}
         />
+        <datalist id="userAgentOptions">
+          <option value="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36">Chrome (Windows)</option>
+          <option value="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36">Chrome (Mac)</option>
+          <option value="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0">Firefox (Windows)</option>
+          <option value="Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_2) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Safari/605.1.15">Safari (Mac)</option>
+          <option value="Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)">Googlebot</option>
+          <option value="WebScraper/1.0">WebScraper/1.0</option>
+        </datalist>
       </div>
 
       <div class="form-group">
