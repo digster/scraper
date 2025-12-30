@@ -1,14 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -69,20 +67,7 @@ func (l *Logger) Error(format string, args ...interface{}) {
 	log.Printf("[ERROR] "+format, args...)
 }
 
-type URLInfo struct {
-	URL   string `json:"url"`
-	Depth int    `json:"depth"`
-}
-
-type CrawlerState struct {
-	Visited   map[string]bool `json:"visited"`
-	Queue     []URLInfo       `json:"queue"`
-	BaseURL   string          `json:"base_url"`
-	Processed int             `json:"processed"`
-	URLDepths map[string]int  `json:"url_depths"`
-	Queued    map[string]bool `json:"queued"`
-}
-
+// Crawler handles web crawling operations
 type Crawler struct {
 	config      Config
 	state       *CrawlerState
@@ -95,6 +80,7 @@ type Crawler struct {
 	robotsMu    sync.RWMutex
 }
 
+// NewCrawler creates a new Crawler instance with the given configuration
 func NewCrawler(config Config) *Crawler {
 	// Set default user agent if not provided
 	userAgent := config.UserAgent
@@ -240,6 +226,7 @@ func (c *Crawler) isAllowedByRobots(rawURL string) bool {
 	return group.Test(parsed.Path)
 }
 
+// Start begins the crawling process
 func (c *Crawler) Start() error {
 	if err := c.loadState(); err != nil {
 		return fmt.Errorf("failed to load state: %v", err)
@@ -265,201 +252,6 @@ func (c *Crawler) Start() error {
 	}
 
 	return c.saveState()
-}
-
-func (c *Crawler) isValidURL(rawURL string) bool {
-	parsed, err := url.Parse(rawURL)
-	if err != nil {
-		return false
-	}
-
-	// Check if URL extension should be excluded
-	if c.shouldExcludeByExtension(parsed.Path) {
-		return false
-	}
-
-	// Must be HTTP/HTTPS
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return false
-	}
-
-	// If prefix filtering is disabled (empty or "none"), allow any HTTP/HTTPS URL discovered through the tree
-	if c.config.PrefixFilterURL == "" || c.config.PrefixFilterURL == "none" {
-		return true
-	}
-
-	// With prefix filtering enabled: check URL prefix constraint using the specified prefix filter URL
-	prefixURL, err := url.Parse(c.config.PrefixFilterURL)
-	if err != nil {
-		return false
-	}
-
-	// Check if URL has the prefix URL as prefix
-	if parsed.Host != prefixURL.Host {
-		return false
-	}
-
-	// Check if path starts with prefix path
-	prefixPath := strings.TrimSuffix(prefixURL.Path, "/")
-	urlPath := strings.TrimSuffix(parsed.Path, "/")
-
-	return strings.HasPrefix(urlPath, prefixPath)
-}
-
-func (c *Crawler) shouldExcludeByExtension(path string) bool {
-	if len(c.config.ExcludeExtensions) == 0 {
-		return false
-	}
-
-	// Extract extension from path
-	ext := strings.ToLower(filepath.Ext(path))
-	if ext != "" {
-		// Remove the dot from extension
-		ext = ext[1:]
-	}
-
-	// Check if extension is in exclude list
-	for _, excludeExt := range c.config.ExcludeExtensions {
-		if ext == excludeExt {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (c *Crawler) shouldExcludeByContentType(contentType string) bool {
-	if len(c.config.ExcludeExtensions) == 0 {
-		return false
-	}
-
-	// Convert content type to lowercase for comparison
-	contentType = strings.ToLower(contentType)
-	
-	// Remove charset and other parameters (e.g., "application/json; charset=utf-8" -> "application/json")
-	if idx := strings.Index(contentType, ";"); idx != -1 {
-		contentType = strings.TrimSpace(contentType[:idx])
-	}
-
-	// Comprehensive mapping of content types to extensions
-	contentTypeToExt := map[string]string{
-		// Common web assets
-		"application/json":            "json",
-		"text/javascript":             "js", 
-		"application/javascript":      "js",
-		"text/css":                   "css",
-		
-		// Images
-		"image/png":                  "png",
-		"image/jpeg":                 "jpg",
-		"image/jpg":                  "jpg",
-		"image/gif":                  "gif",
-		"image/webp":                 "webp",
-		"image/svg+xml":              "svg",
-		"image/bmp":                  "bmp",
-		"image/tiff":                 "tiff",
-		"image/ico":                  "ico",
-		
-		// Documents
-		"application/pdf":            "pdf",
-		"application/msword":         "doc",
-		"application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-		"application/vnd.ms-excel":   "xls",
-		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
-		"application/vnd.ms-powerpoint": "ppt",
-		"application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
-		
-		// Archives
-		"application/zip":            "zip",
-		"application/x-rar-compressed": "rar",
-		"application/x-tar":          "tar",
-		"application/gzip":           "gz",
-		"application/x-7z-compressed": "7z",
-		
-		// Data formats
-		"application/xml":            "xml",
-		"text/xml":                   "xml",
-		"text/csv":                   "csv",
-		"application/yaml":           "yaml",
-		"text/yaml":                  "yaml",
-		
-		// Media
-		"video/mp4":                  "mp4",
-		"video/mpeg":                 "mpeg",
-		"video/quicktime":            "mov",
-		"video/x-msvideo":            "avi",
-		"audio/mpeg":                 "mp3",
-		"audio/wav":                  "wav",
-		"audio/ogg":                  "ogg",
-		
-		// Fonts
-		"font/woff":                  "woff",
-		"font/woff2":                 "woff2",
-		"application/font-woff":      "woff",
-		"application/font-woff2":     "woff2",
-		"font/ttf":                   "ttf",
-		"font/otf":                   "otf",
-	}
-
-	// First check exact mapping
-	if ext, exists := contentTypeToExt[contentType]; exists {
-		for _, excludeExt := range c.config.ExcludeExtensions {
-			if ext == excludeExt {
-				return true
-			}
-		}
-	}
-
-	// For unmapped content types, try to infer from the content type string
-	// e.g., "application/vnd.company.customformat" might contain the extension
-	for _, excludeExt := range c.config.ExcludeExtensions {
-		if strings.Contains(contentType, excludeExt) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (c *Crawler) loadState() error {
-	c.state = &CrawlerState{
-		Visited:   make(map[string]bool),
-		Queue:     []URLInfo{},
-		BaseURL:   c.config.URL,
-		URLDepths: make(map[string]int),
-		Queued:    make(map[string]bool),
-	}
-
-	if _, err := os.Stat(c.config.StateFile); os.IsNotExist(err) {
-		return nil // No existing state file
-	}
-
-	data, err := os.ReadFile(c.config.StateFile)
-	if err != nil {
-		return err
-	}
-
-	if err := json.Unmarshal(data, c.state); err != nil {
-		return err
-	}
-
-	// Initialize Queued map from Queue if empty (backward compatibility with old state files)
-	if len(c.state.Queued) == 0 && len(c.state.Queue) > 0 {
-		for _, urlInfo := range c.state.Queue {
-			c.state.Queued[urlInfo.URL] = true
-		}
-	}
-
-	return nil
-}
-
-func (c *Crawler) saveState() error {
-	data, err := json.MarshalIndent(c.state, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(c.config.StateFile, data, 0644)
 }
 
 func (c *Crawler) crawlSequential() {
@@ -653,121 +445,6 @@ func (c *Crawler) processURL(rawURL string, currentDepth int) {
 		}()
 		c.extractAndQueueURLs(rawURL, string(body), currentDepth)
 	}()
-}
-
-func (c *Crawler) hasContent(html string) bool {
-	defer func() {
-		if r := recover(); r != nil {
-			c.log.Error("Panic in hasContent: %v", r)
-		}
-	}()
-
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
-	if err != nil {
-		return false
-	}
-
-	// Remove script and style elements
-	doc.Find("script, style").Remove()
-
-	// Get text content
-	text := strings.TrimSpace(doc.Text())
-
-	// Use configured minimum content length, fall back to constant if not set
-	minLength := c.config.MinContentLength
-	if minLength == 0 {
-		minLength = MinContentLength
-	}
-
-	// Consider page has content if it has more than minLength characters of text
-	return len(text) > minLength
-}
-
-func (c *Crawler) saveContent(rawURL string, content []byte) error {
-	// Create filename based on URL structure
-	parsedURL, err := url.Parse(rawURL)
-	if err != nil {
-		return fmt.Errorf("failed to parse URL %s: %v", rawURL, err)
-	}
-
-	// Generate filename from URL path
-	filename := c.generateFilename(parsedURL)
-
-	// Create subdirectories if needed
-	fullPath := filepath.Join(c.config.OutputDir, filename)
-	dir := filepath.Dir(fullPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create directory %s: %v", dir, err)
-	}
-
-	// Create metadata file
-	metadata := map[string]interface{}{
-		"url":       rawURL,
-		"timestamp": time.Now().Unix(),
-		"size":      len(content),
-	}
-
-	metaData, _ := json.MarshalIndent(metadata, "", "  ")
-	metaFile := strings.TrimSuffix(fullPath, ".html") + ".meta.json"
-
-	// Save both files
-	if err := os.WriteFile(fullPath, content, 0644); err != nil {
-		return err
-	}
-
-	return os.WriteFile(metaFile, metaData, 0644)
-}
-
-func (c *Crawler) generateFilename(parsedURL *url.URL) string {
-	path := parsedURL.Path
-	query := parsedURL.RawQuery
-
-	// Handle root path
-	if path == "" || path == "/" {
-		if query != "" {
-			return "index_" + sanitizeFilenameComponent(query) + ".html"
-		}
-		return "index.html"
-	}
-
-	// Clean up the path
-	path = strings.Trim(path, "/")
-
-	// Replace invalid characters for filenames
-	path = sanitizeFilenameComponent(path)
-
-	// Append query parameters if present
-	if query != "" {
-		// Remove extension temporarily if present
-		ext := filepath.Ext(path)
-		if ext != "" {
-			path = strings.TrimSuffix(path, ext)
-			path += "_" + sanitizeFilenameComponent(query) + ext
-		} else {
-			path += "_" + sanitizeFilenameComponent(query)
-		}
-	}
-
-	// Add .html extension if it doesn't have an extension
-	if !strings.Contains(filepath.Base(path), ".") {
-		path += ".html"
-	}
-
-	return path
-}
-
-// sanitizeFilenameComponent replaces characters invalid in filenames
-func sanitizeFilenameComponent(s string) string {
-	s = strings.ReplaceAll(s, ":", "_")
-	s = strings.ReplaceAll(s, "?", "_")
-	s = strings.ReplaceAll(s, "*", "_")
-	s = strings.ReplaceAll(s, "<", "_")
-	s = strings.ReplaceAll(s, ">", "_")
-	s = strings.ReplaceAll(s, "|", "_")
-	s = strings.ReplaceAll(s, "\"", "_")
-	s = strings.ReplaceAll(s, "&", "_")
-	s = strings.ReplaceAll(s, "=", "-")
-	return s
 }
 
 func (c *Crawler) extractAndQueueURLs(baseURL, html string, currentDepth int) {
