@@ -1,6 +1,7 @@
-package main
+package crawler
 
 import (
+	"context"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -10,7 +11,7 @@ import (
 )
 
 func TestGenerateFilename(t *testing.T) {
-	c := &Crawler{}
+	c := &Crawler{config: Config{}}
 
 	tests := []struct {
 		name     string
@@ -123,7 +124,7 @@ func TestSanitizeFilenameComponent(t *testing.T) {
 }
 
 func TestGenerateFilenameUniqueness(t *testing.T) {
-	c := &Crawler{}
+	c := &Crawler{config: Config{}}
 
 	// These URLs should produce different filenames
 	urls := []string{
@@ -149,11 +150,11 @@ func TestGenerateFilenameUniqueness(t *testing.T) {
 
 func TestIsValidURL(t *testing.T) {
 	tests := []struct {
-		name            string
-		rawURL          string
-		prefixFilter    string
-		excludeExts     []string
-		expected        bool
+		name         string
+		rawURL       string
+		prefixFilter string
+		excludeExts  []string
+		expected     bool
 	}{
 		{
 			name:         "valid http URL without prefix filter",
@@ -446,7 +447,10 @@ func TestHasContent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &Crawler{}
+			c := &Crawler{
+				config: Config{},
+				log:    &Logger{verbose: false},
+			}
 			result := c.hasContent(tt.html)
 			if result != tt.expected {
 				t.Errorf("hasContent() = %v, want %v", result, tt.expected)
@@ -466,18 +470,20 @@ func TestStatePersistence(t *testing.T) {
 	stateFile := filepath.Join(tmpDir, "test_state.json")
 
 	// Create a crawler with some state
-	c := &Crawler{
-		config: Config{
-			URL:       "https://example.com",
-			StateFile: stateFile,
-		},
+	ctx := context.Background()
+	config := Config{
+		URL:       "https://example.com",
+		StateFile: stateFile,
+		MaxDepth:  10,
 	}
+	c := NewCrawler(config, ctx)
 
 	// Initialize fresh state
-	err = c.loadState()
+	state, err := LoadState(stateFile, config.URL)
 	if err != nil {
-		t.Fatalf("loadState() failed: %v", err)
+		t.Fatalf("LoadState() failed: %v", err)
 	}
+	c.state = state
 
 	// Verify initial state
 	if c.state.BaseURL != "https://example.com" {
@@ -497,9 +503,9 @@ func TestStatePersistence(t *testing.T) {
 	c.state.URLDepths["https://example.com/page2"] = 1
 
 	// Save state
-	err = c.saveState()
+	err = SaveState(c.state, stateFile)
 	if err != nil {
-		t.Fatalf("saveState() failed: %v", err)
+		t.Fatalf("SaveState() failed: %v", err)
 	}
 
 	// Verify file was created
@@ -507,37 +513,30 @@ func TestStatePersistence(t *testing.T) {
 		t.Fatal("state file was not created")
 	}
 
-	// Create new crawler and load state
-	c2 := &Crawler{
-		config: Config{
-			URL:       "https://example.com",
-			StateFile: stateFile,
-		},
-	}
-
-	err = c2.loadState()
+	// Load state into new state object
+	state2, err := LoadState(stateFile, config.URL)
 	if err != nil {
-		t.Fatalf("loadState() for c2 failed: %v", err)
+		t.Fatalf("LoadState() for state2 failed: %v", err)
 	}
 
 	// Verify loaded state
-	if len(c2.state.Visited) != 2 {
-		t.Errorf("Visited count = %d, want 2", len(c2.state.Visited))
+	if len(state2.Visited) != 2 {
+		t.Errorf("Visited count = %d, want 2", len(state2.Visited))
 	}
-	if !c2.state.Visited["https://example.com/page1"] {
+	if !state2.Visited["https://example.com/page1"] {
 		t.Error("page1 should be in Visited")
 	}
-	if !c2.state.Visited["https://example.com/page2"] {
+	if !state2.Visited["https://example.com/page2"] {
 		t.Error("page2 should be in Visited")
 	}
-	if len(c2.state.Queue) != 1 {
-		t.Errorf("Queue length = %d, want 1", len(c2.state.Queue))
+	if len(state2.Queue) != 1 {
+		t.Errorf("Queue length = %d, want 1", len(state2.Queue))
 	}
-	if c2.state.Queue[0].URL != "https://example.com/page3" {
-		t.Errorf("Queue[0].URL = %q, want %q", c2.state.Queue[0].URL, "https://example.com/page3")
+	if state2.Queue[0].URL != "https://example.com/page3" {
+		t.Errorf("Queue[0].URL = %q, want %q", state2.Queue[0].URL, "https://example.com/page3")
 	}
-	if c2.state.Processed != 2 {
-		t.Errorf("Processed = %d, want 2", c2.state.Processed)
+	if state2.Processed != 2 {
+		t.Errorf("Processed = %d, want 2", state2.Processed)
 	}
 }
 
@@ -566,29 +565,22 @@ func TestStateBackwardCompatibility(t *testing.T) {
 	}
 
 	// Load state
-	c := &Crawler{
-		config: Config{
-			URL:       "https://example.com",
-			StateFile: stateFile,
-		},
-	}
-
-	err = c.loadState()
+	state, err := LoadState(stateFile, "https://example.com")
 	if err != nil {
-		t.Fatalf("loadState() failed: %v", err)
+		t.Fatalf("LoadState() failed: %v", err)
 	}
 
 	// Verify Queued map was initialized from queue
-	if c.state.Queued == nil {
+	if state.Queued == nil {
 		t.Fatal("Queued map should be initialized")
 	}
-	if len(c.state.Queue) != 1 {
-		t.Fatalf("Queue should have 1 item, got %d", len(c.state.Queue))
+	if len(state.Queue) != 1 {
+		t.Fatalf("Queue should have 1 item, got %d", len(state.Queue))
 	}
-	if c.state.Queue[0].URL != "https://example.com/page2" {
-		t.Errorf("Queue[0].URL = %q, want %q", c.state.Queue[0].URL, "https://example.com/page2")
+	if state.Queue[0].URL != "https://example.com/page2" {
+		t.Errorf("Queue[0].URL = %q, want %q", state.Queue[0].URL, "https://example.com/page2")
 	}
-	if !c.state.Queued["https://example.com/page2"] {
+	if !state.Queued["https://example.com/page2"] {
 		t.Error("Queued should contain page2 from queue")
 	}
 }
@@ -742,7 +734,7 @@ func TestValidateConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateConfig(&tt.config)
+			err := ValidateConfig(&tt.config)
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("expected error containing %q, got nil", tt.errorMsg)
@@ -891,9 +883,9 @@ func TestFormatBytes(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		result := formatBytes(tt.bytes)
+		result := FormatBytes(tt.bytes)
 		if result != tt.expected {
-			t.Errorf("formatBytes(%d) = %q, want %q", tt.bytes, result, tt.expected)
+			t.Errorf("FormatBytes(%d) = %q, want %q", tt.bytes, result, tt.expected)
 		}
 	}
 }
@@ -911,9 +903,9 @@ func TestFormatDuration(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		result := formatDuration(tt.duration)
+		result := FormatDuration(tt.duration)
 		if result != tt.expected {
-			t.Errorf("formatDuration(%v) = %q, want %q", tt.duration, result, tt.expected)
+			t.Errorf("FormatDuration(%v) = %q, want %q", tt.duration, result, tt.expected)
 		}
 	}
 }
@@ -968,10 +960,36 @@ func TestSanitizeDirName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := sanitizeDirName(tt.input)
+			result := SanitizeDirName(tt.input)
 			if result != tt.expected {
-				t.Errorf("sanitizeDirName(%q) = %q, want %q", tt.input, result, tt.expected)
+				t.Errorf("SanitizeDirName(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestPauseResume(t *testing.T) {
+	ctx := context.Background()
+	config := Config{
+		URL:      "https://example.com",
+		MaxDepth: 10,
+	}
+	c := NewCrawler(config, ctx)
+
+	// Initially not paused
+	if c.IsPaused() {
+		t.Error("crawler should not be paused initially")
+	}
+
+	// Pause
+	c.Pause()
+	if !c.IsPaused() {
+		t.Error("crawler should be paused after Pause()")
+	}
+
+	// Resume
+	c.Resume()
+	if c.IsPaused() {
+		t.Error("crawler should not be paused after Resume()")
 	}
 }

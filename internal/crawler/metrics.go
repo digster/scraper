@@ -1,4 +1,4 @@
-package main
+package crawler
 
 import (
 	"encoding/json"
@@ -140,7 +140,7 @@ func (m *CrawlerMetrics) DisplayProgress(verbose bool) {
 	elapsed := time.Since(m.StartTime)
 
 	// Format bytes downloaded
-	bytesStr := formatBytes(snapshot.BytesDownloaded)
+	bytesStr := FormatBytes(snapshot.BytesDownloaded)
 
 	// Calculate percentage if we have a meaningful denominator
 	// (processed + queue gives us an estimate of total)
@@ -155,7 +155,7 @@ func (m *CrawlerMetrics) DisplayProgress(verbose bool) {
 
 	if verbose {
 		fmt.Printf("\r[%s] Progress: %s | Processed: %d | Saved: %d | Errors: %d | Queue: %d | %.2f p/s | %s   ",
-			formatDuration(elapsed),
+			FormatDuration(elapsed),
 			progressStr,
 			snapshot.URLsProcessed,
 			snapshot.URLsSaved,
@@ -166,7 +166,7 @@ func (m *CrawlerMetrics) DisplayProgress(verbose bool) {
 		)
 	} else {
 		fmt.Printf("\r[%s] %s | %d processed | %d saved | %d in queue | %.2f p/s   ",
-			formatDuration(elapsed),
+			FormatDuration(elapsed),
 			progressStr,
 			snapshot.URLsProcessed,
 			snapshot.URLsSaved,
@@ -186,7 +186,7 @@ func (m *CrawlerMetrics) DisplayFinalSummary() {
 	fmt.Println() // New line after progress bar
 	fmt.Println()
 	fmt.Println("=== Crawl Complete ===")
-	fmt.Printf("Duration:         %s\n", formatDuration(time.Duration(snapshot.Duration*float64(time.Second))))
+	fmt.Printf("Duration:         %s\n", FormatDuration(time.Duration(snapshot.Duration*float64(time.Second))))
 	fmt.Printf("URLs Processed:   %d\n", snapshot.URLsProcessed)
 	fmt.Printf("URLs Saved:       %d\n", snapshot.URLsSaved)
 	fmt.Printf("URLs Skipped:     %d\n", snapshot.URLsSkipped)
@@ -194,7 +194,7 @@ func (m *CrawlerMetrics) DisplayFinalSummary() {
 	fmt.Printf("Robots Blocked:   %d\n", snapshot.RobotsBlocked)
 	fmt.Printf("Depth Limit Hits: %d\n", snapshot.DepthLimitHits)
 	fmt.Printf("Content Filtered: %d\n", snapshot.ContentFiltered)
-	fmt.Printf("Data Downloaded:  %s\n", formatBytes(snapshot.BytesDownloaded))
+	fmt.Printf("Data Downloaded:  %s\n", FormatBytes(snapshot.BytesDownloaded))
 	fmt.Printf("Average Speed:    %.2f pages/second\n", snapshot.PagesPerSecond)
 }
 
@@ -215,8 +215,8 @@ func (m *CrawlerMetrics) WriteJSON(filepath string) error {
 	return nil
 }
 
-// formatBytes converts bytes to human readable format
-func formatBytes(bytes int64) string {
+// FormatBytes converts bytes to human readable format
+func FormatBytes(bytes int64) string {
 	const unit = 1024
 	if bytes < unit {
 		return fmt.Sprintf("%d B", bytes)
@@ -229,8 +229,8 @@ func formatBytes(bytes int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
-// formatDuration formats a duration as HH:MM:SS
-func formatDuration(d time.Duration) string {
+// FormatDuration formats a duration as HH:MM:SS
+func FormatDuration(d time.Duration) string {
 	d = d.Round(time.Second)
 	h := d / time.Hour
 	d -= h * time.Hour

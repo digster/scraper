@@ -1,4 +1,4 @@
-package main
+package crawler
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -44,28 +43,37 @@ const (
 // Logger provides leveled logging for the crawler
 type Logger struct {
 	verbose bool
+	emitter EventEmitter
 }
 
 // Debug logs a message only if verbose mode is enabled
 func (l *Logger) Debug(format string, args ...interface{}) {
 	if l.verbose {
-		log.Printf("[DEBUG] "+format, args...)
+		msg := fmt.Sprintf(format, args...)
+		log.Printf("[DEBUG] " + msg)
+		EmitLog(l.emitter, "debug", msg)
 	}
 }
 
 // Info logs an informational message (always shown)
 func (l *Logger) Info(format string, args ...interface{}) {
-	log.Printf("[INFO] "+format, args...)
+	msg := fmt.Sprintf(format, args...)
+	log.Printf("[INFO] " + msg)
+	EmitLog(l.emitter, "info", msg)
 }
 
 // Warn logs a warning message (always shown)
 func (l *Logger) Warn(format string, args ...interface{}) {
-	log.Printf("[WARN] "+format, args...)
+	msg := fmt.Sprintf(format, args...)
+	log.Printf("[WARN] " + msg)
+	EmitLog(l.emitter, "warn", msg)
 }
 
 // Error logs an error message (always shown)
 func (l *Logger) Error(format string, args ...interface{}) {
-	log.Printf("[ERROR] "+format, args...)
+	msg := fmt.Sprintf(format, args...)
+	log.Printf("[ERROR] " + msg)
+	EmitLog(l.emitter, "error", msg)
 }
 
 // Crawler handles web crawling operations
@@ -82,10 +90,19 @@ type Crawler struct {
 	metrics     *CrawlerMetrics
 	ctx         context.Context
 	cancel      context.CancelFunc
+	emitter     EventEmitter
+	paused      bool
+	pauseMu     sync.Mutex
+	pauseCond   *sync.Cond
 }
 
 // NewCrawler creates a new Crawler instance with the given configuration
 func NewCrawler(config Config, ctx context.Context) *Crawler {
+	return NewCrawlerWithEmitter(config, ctx, nil)
+}
+
+// NewCrawlerWithEmitter creates a new Crawler instance with event emission capability
+func NewCrawlerWithEmitter(config Config, ctx context.Context, emitter EventEmitter) *Crawler {
 	// Set default user agent if not provided
 	userAgent := config.UserAgent
 	if userAgent == "" {
@@ -116,18 +133,74 @@ func NewCrawler(config Config, ctx context.Context) *Crawler {
 				return nil
 			},
 		},
-		log:         &Logger{verbose: config.Verbose},
+		log:         &Logger{verbose: config.Verbose, emitter: emitter},
 		robotsCache: make(map[string]*robotstxt.RobotsData),
 		metrics:     NewCrawlerMetrics(),
 		ctx:         crawlerCtx,
 		cancel:      cancel,
+		emitter:     emitter,
 	}
+
+	c.pauseCond = sync.NewCond(&c.pauseMu)
 
 	if config.Concurrent {
 		c.semaphore = make(chan struct{}, MaxConcurrentRequests)
 	}
 
 	return c
+}
+
+// GetMetrics returns the current metrics
+func (c *Crawler) GetMetrics() *CrawlerMetrics {
+	return c.metrics
+}
+
+// GetState returns the current crawler state
+func (c *Crawler) GetState() *CrawlerState {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.state
+}
+
+// IsPaused returns whether the crawler is currently paused
+func (c *Crawler) IsPaused() bool {
+	c.pauseMu.Lock()
+	defer c.pauseMu.Unlock()
+	return c.paused
+}
+
+// Pause pauses the crawler
+func (c *Crawler) Pause() {
+	c.pauseMu.Lock()
+	c.paused = true
+	c.pauseMu.Unlock()
+	EmitStateChange(c.emitter, EventCrawlPaused)
+}
+
+// Resume resumes the crawler
+func (c *Crawler) Resume() {
+	c.pauseMu.Lock()
+	c.paused = false
+	c.pauseCond.Broadcast()
+	c.pauseMu.Unlock()
+	EmitStateChange(c.emitter, EventCrawlResumed)
+}
+
+// Stop stops the crawler gracefully
+func (c *Crawler) Stop() {
+	c.cancel()
+	// Also resume in case we're paused, so the crawler can exit
+	c.Resume()
+	EmitStateChange(c.emitter, EventCrawlStopped)
+}
+
+// checkPaused checks if crawler is paused and waits
+func (c *Crawler) checkPaused() {
+	c.pauseMu.Lock()
+	for c.paused && !c.isShuttingDown() {
+		c.pauseCond.Wait()
+	}
+	c.pauseMu.Unlock()
 }
 
 // isShuttingDown checks if the crawler should stop due to context cancellation
@@ -248,11 +321,14 @@ func (c *Crawler) isAllowedByRobots(rawURL string) bool {
 
 // Start begins the crawling process
 func (c *Crawler) Start() error {
-	if err := c.loadState(); err != nil {
+	// Load state
+	state, err := LoadState(c.config.StateFile, c.config.URL)
+	if err != nil {
 		return fmt.Errorf("failed to load state: %v", err)
 	}
+	c.state = state
 
-	if err := os.MkdirAll(c.config.OutputDir, 0755); err != nil {
+	if err := EnsureOutputDir(&c.config); err != nil {
 		return fmt.Errorf("failed to create output directory: %v", err)
 	}
 
@@ -264,6 +340,8 @@ func (c *Crawler) Start() error {
 
 	c.log.Info("Starting crawler with %d URLs in queue", len(c.state.Queue))
 	c.log.Debug("Max depth set to: %d", c.config.MaxDepth)
+
+	EmitStateChange(c.emitter, EventCrawlStarted)
 
 	if c.config.Concurrent {
 		c.crawlConcurrent()
@@ -285,11 +363,16 @@ func (c *Crawler) Start() error {
 		}
 	}
 
-	return c.saveState()
+	EmitStateChange(c.emitter, EventCrawlCompleted)
+
+	return SaveState(c.state, c.config.StateFile)
 }
 
 func (c *Crawler) crawlSequential() {
 	for len(c.state.Queue) > 0 {
+		// Check for pause
+		c.checkPaused()
+
 		// Check for shutdown signal
 		if c.isShuttingDown() {
 			c.log.Info("Shutdown signal received, stopping crawl...")
@@ -330,9 +413,10 @@ func (c *Crawler) crawlSequential() {
 			c.processURL(currentURLInfo.URL, currentURLInfo.Depth)
 		}()
 
-		// Display progress if enabled
+		// Emit progress event and display if enabled
 		if c.config.ShowProgress && c.metrics.ShouldDisplay() {
 			c.metrics.DisplayProgress(c.config.Verbose)
+			EmitProgress(c.emitter, c.metrics, currentURLInfo.URL)
 		}
 
 		time.Sleep(c.config.Delay)
@@ -340,7 +424,7 @@ func (c *Crawler) crawlSequential() {
 		// Save state periodically
 		if c.state.Processed%StateSaveInterval == 0 {
 			c.log.Debug("Saving state at %d processed URLs", c.state.Processed)
-			if err := c.saveState(); err != nil {
+			if err := SaveState(c.state, c.config.StateFile); err != nil {
 				c.log.Warn("Failed to save state: %v", err)
 			}
 		}
@@ -352,6 +436,9 @@ func (c *Crawler) crawlConcurrent() {
 	var activeGoroutines atomic.Int64
 
 	for {
+		// Check for pause
+		c.checkPaused()
+
 		// Check for shutdown signal
 		if c.isShuttingDown() {
 			c.log.Info("Shutdown signal received, waiting for active goroutines to finish...")
@@ -406,16 +493,17 @@ func (c *Crawler) crawlConcurrent() {
 				time.Sleep(c.config.Delay)
 			}(currentURLInfo)
 
-			// Display progress if enabled
+			// Emit progress event and display if enabled
 			if c.config.ShowProgress && c.metrics.ShouldDisplay() {
 				c.metrics.DisplayProgress(c.config.Verbose)
+				EmitProgress(c.emitter, c.metrics, currentURLInfo.URL)
 			}
 
 			// Save state periodically
 			if c.state.Processed%StateSaveInterval == 0 {
 				c.log.Debug("Concurrent - Waiting for goroutines before saving state at %d processed URLs", c.state.Processed)
 				c.wg.Wait()
-				if err := c.saveState(); err != nil {
+				if err := SaveState(c.state, c.config.StateFile); err != nil {
 					c.log.Warn("Failed to save state: %v", err)
 				}
 			}

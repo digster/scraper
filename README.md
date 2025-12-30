@@ -1,6 +1,6 @@
 # Web Scraper
 
-A Go-based web scraper that creates offline backups of websites by crawling and downloading content.
+A Go-based web scraper that creates offline backups of websites by crawling and downloading content. Available as both a CLI tool and a desktop GUI application.
 
 ## Initial Prompt
 I want to create a go program to create an offline backup of the url provided.
@@ -25,17 +25,57 @@ Ask any clarifying questions if needed.
 - **Progress Display**: Real-time progress bar with statistics (pages/second, queue size, etc.)
 - **Metrics Export**: Optional JSON export of crawl statistics
 - **Graceful Shutdown**: Handle SIGINT/SIGTERM signals and save state before exiting
+- **Desktop GUI**: Native desktop application with real-time progress, pause/resume controls, and log viewer
+
+## GUI Features
+
+The desktop GUI provides a user-friendly interface with:
+
+- **Configuration Panel**: All CLI options available as form inputs
+- **Real-time Progress Dashboard**: Progress bar, metrics, and current URL display
+- **Control Buttons**: Start, Pause/Resume, and Stop controls
+- **Live Log Viewer**: Color-coded, scrollable log output
+- **Native Dialogs**: File and directory pickers for output and state files
 
 ## Installation
 
+### CLI
+
 ```bash
 go mod tidy
-go build -o scraper
+go build -o scraper ./cmd/cli
 ```
+
+### GUI (Desktop Application)
+
+The GUI requires [Wails](https://wails.io/) to be installed:
+
+```bash
+# Install Wails
+go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+# Add Go bin to PATH (add to ~/.zshrc for permanence)
+export PATH="$HOME/go/bin:$PATH"
+
+# Install frontend dependencies
+cd frontend && npm install && cd ..
+
+# Development mode (hot reload)
+wails dev
+
+# Build for production
+wails build
+```
+
+The built application will be in `build/bin/`.
 
 ## Usage
 
-### Basic Usage
+### GUI
+
+Simply run the built application or use `wails dev` for development. All options are available in the configuration panel.
+
+### CLI Basic Usage
 ```bash
 ./scraper -url https://example.com/docs
 ```
