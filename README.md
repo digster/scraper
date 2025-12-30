@@ -64,6 +64,7 @@ go build -o scraper
 - `-verbose`: Enable verbose debug output (default: false)
 - `-user-agent`: Custom User-Agent header for HTTP requests (default: WebScraper/1.0)
 - `-ignore-robots`: Ignore robots.txt rules (default: false)
+- `-min-content`: Minimum text content length (characters) for a page to be saved (default: 100)
 
 ## How It Works
 

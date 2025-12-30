@@ -28,6 +28,7 @@ type Config struct {
 	Verbose           bool
 	UserAgent         string
 	IgnoreRobots      bool
+	MinContentLength  int
 }
 
 // validateConfig checks that configuration values are valid
@@ -58,6 +59,11 @@ func validateConfig(config *Config) error {
 	// Validate Delay (duration can't be negative from flag parsing, but check anyway)
 	if config.Delay < 0 {
 		return fmt.Errorf("delay cannot be negative, got: %v", config.Delay)
+	}
+
+	// Validate MinContentLength
+	if config.MinContentLength < 0 {
+		return fmt.Errorf("min-content cannot be negative, got: %d", config.MinContentLength)
 	}
 
 	// Validate PrefixFilterURL if provided
@@ -118,6 +124,7 @@ func main() {
 	flag.BoolVar(&config.Verbose, "verbose", false, "Enable verbose debug output")
 	flag.StringVar(&config.UserAgent, "user-agent", "", "Custom User-Agent header (defaults to WebScraper/1.0)")
 	flag.BoolVar(&config.IgnoreRobots, "ignore-robots", false, "Ignore robots.txt rules")
+	flag.IntVar(&config.MinContentLength, "min-content", 100, "Minimum text content length (characters) for a page to be saved")
 	flag.Parse()
 
 	// Parse exclude extensions

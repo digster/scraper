@@ -710,6 +710,34 @@ func TestValidateConfig(t *testing.T) {
 			},
 			expectError: false,
 		},
+		{
+			name: "negative min-content",
+			config: Config{
+				URL:              "https://example.com",
+				MaxDepth:         10,
+				MinContentLength: -1,
+			},
+			expectError: true,
+			errorMsg:    "min-content cannot be negative",
+		},
+		{
+			name: "zero min-content is valid",
+			config: Config{
+				URL:              "https://example.com",
+				MaxDepth:         10,
+				MinContentLength: 0,
+			},
+			expectError: false,
+		},
+		{
+			name: "custom min-content is valid",
+			config: Config{
+				URL:              "https://example.com",
+				MaxDepth:         10,
+				MinContentLength: 500,
+			},
+			expectError: false,
+		},
 	}
 
 	for _, tt := range tests {

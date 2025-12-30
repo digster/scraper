@@ -673,8 +673,14 @@ func (c *Crawler) hasContent(html string) bool {
 	// Get text content
 	text := strings.TrimSpace(doc.Text())
 
-	// Consider page has content if it has more than MinContentLength characters of text
-	return len(text) > MinContentLength
+	// Use configured minimum content length, fall back to constant if not set
+	minLength := c.config.MinContentLength
+	if minLength == 0 {
+		minLength = MinContentLength
+	}
+
+	// Consider page has content if it has more than minLength characters of text
+	return len(text) > minLength
 }
 
 func (c *Crawler) saveContent(rawURL string, content []byte) error {
