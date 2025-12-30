@@ -63,6 +63,7 @@ go build -o scraper
 - `-link-selectors`: Comma-separated list of CSS selectors to filter links (e.g., 'a.internal,.nav-link')
 - `-verbose`: Enable verbose debug output (default: false)
 - `-user-agent`: Custom User-Agent header for HTTP requests (default: WebScraper/1.0)
+- `-ignore-robots`: Ignore robots.txt rules (default: false)
 
 ## How It Works
 

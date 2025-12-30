@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/temoto/robotstxt"
 )
 
 // Crawler configuration constants
@@ -83,13 +84,15 @@ type CrawlerState struct {
 }
 
 type Crawler struct {
-	config    Config
-	state     *CrawlerState
-	client    *http.Client
-	mu        sync.RWMutex
-	wg        sync.WaitGroup
-	semaphore chan struct{}
-	log       *Logger
+	config      Config
+	state       *CrawlerState
+	client      *http.Client
+	mu          sync.RWMutex
+	wg          sync.WaitGroup
+	semaphore   chan struct{}
+	log         *Logger
+	robotsCache map[string]*robotstxt.RobotsData
+	robotsMu    sync.RWMutex
 }
 
 func NewCrawler(config Config) *Crawler {
@@ -120,7 +123,8 @@ func NewCrawler(config Config) *Crawler {
 				return nil
 			},
 		},
-		log: &Logger{verbose: config.Verbose},
+		log:         &Logger{verbose: config.Verbose},
+		robotsCache: make(map[string]*robotstxt.RobotsData),
 	}
 
 	if config.Concurrent {
@@ -145,6 +149,95 @@ func (c *Crawler) fetch(rawURL string) (*http.Response, error) {
 	req.Header.Set("User-Agent", userAgent)
 
 	return c.client.Do(req)
+}
+
+// getRobots fetches and caches robots.txt for a given host
+func (c *Crawler) getRobots(host string, scheme string) *robotstxt.RobotsData {
+	// Check cache first
+	c.robotsMu.RLock()
+	robots, exists := c.robotsCache[host]
+	c.robotsMu.RUnlock()
+
+	if exists {
+		return robots
+	}
+
+	// Fetch robots.txt
+	robotsURL := fmt.Sprintf("%s://%s/robots.txt", scheme, host)
+	resp, err := c.fetch(robotsURL)
+	if err != nil {
+		c.log.Debug("Failed to fetch robots.txt for %s: %v", host, err)
+		// Cache nil to avoid repeated failed fetches
+		c.robotsMu.Lock()
+		c.robotsCache[host] = nil
+		c.robotsMu.Unlock()
+		return nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		c.log.Debug("robots.txt returned %d for %s", resp.StatusCode, host)
+		c.robotsMu.Lock()
+		c.robotsCache[host] = nil
+		c.robotsMu.Unlock()
+		return nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.log.Debug("Failed to read robots.txt for %s: %v", host, err)
+		c.robotsMu.Lock()
+		c.robotsCache[host] = nil
+		c.robotsMu.Unlock()
+		return nil
+	}
+
+	robots, err = robotstxt.FromBytes(body)
+	if err != nil {
+		c.log.Debug("Failed to parse robots.txt for %s: %v", host, err)
+		c.robotsMu.Lock()
+		c.robotsCache[host] = nil
+		c.robotsMu.Unlock()
+		return nil
+	}
+
+	c.log.Debug("Loaded robots.txt for %s", host)
+	c.robotsMu.Lock()
+	c.robotsCache[host] = robots
+	c.robotsMu.Unlock()
+	return robots
+}
+
+// isAllowedByRobots checks if a URL is allowed by robots.txt
+func (c *Crawler) isAllowedByRobots(rawURL string) bool {
+	// Skip check if robots.txt is ignored
+	if c.config.IgnoreRobots {
+		return true
+	}
+
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return true // Allow if we can't parse
+	}
+
+	robots := c.getRobots(parsed.Host, parsed.Scheme)
+	if robots == nil {
+		return true // Allow if no robots.txt
+	}
+
+	// Get the user agent to check against
+	userAgent := c.config.UserAgent
+	if userAgent == "" {
+		userAgent = DefaultUserAgent
+	}
+
+	// Check if the path is allowed
+	group := robots.FindGroup(userAgent)
+	if group == nil {
+		return true
+	}
+
+	return group.Test(parsed.Path)
 }
 
 func (c *Crawler) Start() error {
@@ -504,6 +597,12 @@ func (c *Crawler) processURL(rawURL string, currentDepth int) {
 	c.mu.Unlock()
 
 	c.log.Info("[%d] Processing: %s", c.state.Processed, rawURL)
+
+	// Check robots.txt before fetching
+	if !c.isAllowedByRobots(rawURL) {
+		c.log.Debug("Blocked by robots.txt: %s", rawURL)
+		return
+	}
 
 	resp, err := c.fetch(rawURL)
 	if err != nil {

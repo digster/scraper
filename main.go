@@ -27,6 +27,7 @@ type Config struct {
 	LinkSelectors     []string
 	Verbose           bool
 	UserAgent         string
+	IgnoreRobots      bool
 }
 
 // validateConfig checks that configuration values are valid
@@ -116,6 +117,7 @@ func main() {
 	flag.StringVar(&linkSelectors, "link-selectors", "", "Comma-separated list of CSS selectors to filter links (e.g., 'a.internal,.nav-link')")
 	flag.BoolVar(&config.Verbose, "verbose", false, "Enable verbose debug output")
 	flag.StringVar(&config.UserAgent, "user-agent", "", "Custom User-Agent header (defaults to WebScraper/1.0)")
+	flag.BoolVar(&config.IgnoreRobots, "ignore-robots", false, "Ignore robots.txt rules")
 	flag.Parse()
 
 	// Parse exclude extensions
