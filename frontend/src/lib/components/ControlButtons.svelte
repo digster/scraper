@@ -56,7 +56,7 @@
 <div class="control-buttons">
   {#if isStopped}
     <button class="btn-start" on:click={startCrawl} disabled={!config.url}>
-      Start Crawl
+      Start
     </button>
   {:else}
     {#if isPaused}

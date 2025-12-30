@@ -9,6 +9,22 @@
   let status;
   crawlerStore.subscribe(value => status = value.status);
 
+  // Tooltip descriptions for options
+  const tooltips = {
+    maxDepth: "Maximum number of link hops from the starting URL. Depth is measured by discovery steps, not URL path depth.",
+    delay: "Time to wait between fetches (e.g., 1s, 500ms). Helps avoid overwhelming servers and getting blocked.",
+    minContent: "Minimum text content length (characters) required for a page to be saved. Filters out empty or minimal pages.",
+    fetchMode: "HTTP Client is fast but may be blocked by anti-bot protection. Browser mode uses real Chrome to bypass such measures.",
+    concurrent: "Process multiple URLs in parallel (up to 10 simultaneous requests). Faster but more resource intensive.",
+    ignoreRobots: "Bypass robots.txt rules that restrict crawling. Use responsibly and only when permitted.",
+    headless: "Run browser without visible window. Disable for debugging or manual CAPTCHA solving.",
+    prefixFilter: "Only crawl URLs that start with this prefix. Leave empty to crawl any discovered URL.",
+    excludeExtensions: "Skip downloading files with these extensions (comma-separated). Useful for excluding assets like images or scripts.",
+    linkSelectors: "CSS selectors to filter which links to follow. Default follows all links with href attribute.",
+    userAgent: "HTTP User-Agent header sent with requests. Some sites block non-browser user agents.",
+    stateFile: "JSON file storing crawl progress. Allows resuming interrupted crawls from where they left off."
+  };
+
   async function browseDirectory() {
     if (window.go && window.go.app && window.go.app.App) {
       try {
@@ -66,7 +82,10 @@
 
   <div class="form-row">
     <div class="form-group">
-      <label for="depth">Max Depth</label>
+      <label for="depth">
+        Max Depth
+        <span class="info-icon" data-tooltip={tooltips.maxDepth}>i</span>
+      </label>
       <input
         type="number"
         id="depth"
@@ -77,7 +96,10 @@
     </div>
 
     <div class="form-group">
-      <label for="delay">Delay</label>
+      <label for="delay">
+        Delay
+        <span class="info-icon" data-tooltip={tooltips.delay}>i</span>
+      </label>
       <input
         type="text"
         id="delay"
@@ -90,7 +112,10 @@
 
   <div class="form-row">
     <div class="form-group">
-      <label for="minContent">Min Content</label>
+      <label for="minContent">
+        Min Content
+        <span class="info-icon" data-tooltip={tooltips.minContent}>i</span>
+      </label>
       <input
         type="number"
         id="minContent"
@@ -102,7 +127,10 @@
   </div>
 
   <div class="form-group fetch-mode-group">
-    <label for="fetchMode">Fetch Mode</label>
+    <label for="fetchMode">
+      Fetch Mode
+      <span class="info-icon" data-tooltip={tooltips.fetchMode}>i</span>
+    </label>
     <div class="fetch-mode-row">
       <select
         id="fetchMode"
@@ -120,6 +148,7 @@
             disabled={status !== 'stopped'}
           />
           Headless
+          <span class="info-icon" data-tooltip={tooltips.headless}>i</span>
         </label>
       {/if}
     </div>
@@ -129,10 +158,12 @@
     <label>
       <input type="checkbox" bind:checked={config.concurrent} disabled={status !== 'stopped'} />
       Concurrent Mode
+      <span class="info-icon" data-tooltip={tooltips.concurrent}>i</span>
     </label>
     <label>
       <input type="checkbox" bind:checked={config.ignoreRobots} disabled={status !== 'stopped'} />
       Ignore robots.txt
+      <span class="info-icon" data-tooltip={tooltips.ignoreRobots}>i</span>
     </label>
     <label>
       <input type="checkbox" bind:checked={config.verbose} disabled={status !== 'stopped'} />
@@ -147,7 +178,10 @@
   {#if showAdvanced}
     <div class="advanced-settings">
       <div class="form-group">
-        <label for="prefixFilter">Prefix Filter</label>
+        <label for="prefixFilter">
+          Prefix Filter
+          <span class="info-icon" data-tooltip={tooltips.prefixFilter}>i</span>
+        </label>
         <input
           type="text"
           id="prefixFilter"
@@ -158,7 +192,10 @@
       </div>
 
       <div class="form-group">
-        <label for="excludeExtensions">Exclude Extensions</label>
+        <label for="excludeExtensions">
+          Exclude Extensions
+          <span class="info-icon" data-tooltip={tooltips.excludeExtensions}>i</span>
+        </label>
         <input
           type="text"
           id="excludeExtensions"
@@ -169,7 +206,10 @@
       </div>
 
       <div class="form-group">
-        <label for="linkSelectors">Link Selectors</label>
+        <label for="linkSelectors">
+          Link Selectors
+          <span class="info-icon" data-tooltip={tooltips.linkSelectors}>i</span>
+        </label>
         <input
           type="text"
           id="linkSelectors"
@@ -180,7 +220,10 @@
       </div>
 
       <div class="form-group">
-        <label for="userAgent">User Agent</label>
+        <label for="userAgent">
+          User Agent
+          <span class="info-icon" data-tooltip={tooltips.userAgent}>i</span>
+        </label>
         <input
           type="text"
           id="userAgent"
@@ -200,7 +243,10 @@
       </div>
 
       <div class="form-group">
-        <label for="stateFile">State File (for resume)</label>
+        <label for="stateFile">
+          State File
+          <span class="info-icon" data-tooltip={tooltips.stateFile}>i</span>
+        </label>
         <div class="input-with-button">
           <input
             type="text"
@@ -303,9 +349,9 @@
   }
 
   .checkbox-group label {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     cursor: pointer;
     color: #ccc;
   }
@@ -369,9 +415,9 @@
   }
 
   .headless-toggle {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     color: #ccc;
     cursor: pointer;
     font-size: 0.85rem;
@@ -381,5 +427,80 @@
     width: 16px;
     height: 16px;
     cursor: pointer;
+  }
+
+  .info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 12px;
+    height: 12px;
+    min-width: 12px;
+    margin-left: 2px;
+    font-size: 8px;
+    font-weight: bold;
+    font-style: italic;
+    color: #666;
+    background: #2a3f5f;
+    border-radius: 50%;
+    cursor: help;
+    position: relative;
+    vertical-align: baseline;
+    transform: translateY(-1px);
+  }
+
+  .info-icon:hover {
+    background: #4a9eff;
+    color: #fff;
+  }
+
+  /* Checkbox group labels need special handling */
+  .checkbox-group .info-icon {
+    margin-left: 2px;
+    vertical-align: middle;
+    transform: none;
+  }
+
+  .headless-toggle .info-icon {
+    margin-left: 2px;
+    vertical-align: middle;
+    transform: none;
+  }
+
+  .info-icon[data-tooltip] {
+    position: relative;
+  }
+
+  .info-icon[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: calc(100% + 8px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: #1a2847;
+    color: #ddd;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: normal;
+    font-style: normal;
+    white-space: normal;
+    width: max-content;
+    max-width: 220px;
+    line-height: 1.4;
+    z-index: 1000;
+    border: 1px solid #2a3f5f;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  .info-icon[data-tooltip]:hover::before {
+    content: '';
+    position: absolute;
+    left: calc(100% + 2px);
+    top: 50%;
+    transform: translateY(-50%);
+    border: 6px solid transparent;
+    border-right-color: #2a3f5f;
+    z-index: 1001;
   }
 </style>

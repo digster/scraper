@@ -102,6 +102,9 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
+    overflow-y: auto;
+    min-height: 0;
+    padding-bottom: 8px;
   }
 
   .right-panel {
