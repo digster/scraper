@@ -24,6 +24,7 @@ Ask any clarifying questions if needed.
 - **State Persistence**: Saves crawling state to JSON file for resumption
 - **Progress Display**: Real-time progress bar with statistics (pages/second, queue size, etc.)
 - **Metrics Export**: Optional JSON export of crawl statistics
+- **Graceful Shutdown**: Handle SIGINT/SIGTERM signals and save state before exiting
 
 ## Installation
 
@@ -175,3 +176,4 @@ Simply run the same command again - it will automatically resume from the state 
 - Use `-exclude-extensions` to skip downloading specific asset types (js, css, images, etc.)
 - Concurrent mode limits to 10 simultaneous requests to avoid overwhelming servers
 - State is saved every 10 processed URLs for resilience
+- Press Ctrl+C to gracefully stop crawling - state will be saved automatically for resumption

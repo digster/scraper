@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -79,10 +80,12 @@ type Crawler struct {
 	robotsCache map[string]*robotstxt.RobotsData
 	robotsMu    sync.RWMutex
 	metrics     *CrawlerMetrics
+	ctx         context.Context
+	cancel      context.CancelFunc
 }
 
 // NewCrawler creates a new Crawler instance with the given configuration
-func NewCrawler(config Config) *Crawler {
+func NewCrawler(config Config, ctx context.Context) *Crawler {
 	// Set default user agent if not provided
 	userAgent := config.UserAgent
 	if userAgent == "" {
@@ -95,6 +98,9 @@ func NewCrawler(config Config) *Crawler {
 		MaxIdleConnsPerHost: 10,
 		IdleConnTimeout:     90 * time.Second,
 	}
+
+	// Create a child context so we can cancel it independently
+	crawlerCtx, cancel := context.WithCancel(ctx)
 
 	c := &Crawler{
 		config: config,
@@ -113,6 +119,8 @@ func NewCrawler(config Config) *Crawler {
 		log:         &Logger{verbose: config.Verbose},
 		robotsCache: make(map[string]*robotstxt.RobotsData),
 		metrics:     NewCrawlerMetrics(),
+		ctx:         crawlerCtx,
+		cancel:      cancel,
 	}
 
 	if config.Concurrent {
@@ -120,6 +128,16 @@ func NewCrawler(config Config) *Crawler {
 	}
 
 	return c
+}
+
+// isShuttingDown checks if the crawler should stop due to context cancellation
+func (c *Crawler) isShuttingDown() bool {
+	select {
+	case <-c.ctx.Done():
+		return true
+	default:
+		return false
+	}
 }
 
 // fetch performs an HTTP GET request with the configured User-Agent header
@@ -272,6 +290,12 @@ func (c *Crawler) Start() error {
 
 func (c *Crawler) crawlSequential() {
 	for len(c.state.Queue) > 0 {
+		// Check for shutdown signal
+		if c.isShuttingDown() {
+			c.log.Info("Shutdown signal received, stopping crawl...")
+			return
+		}
+
 		currentURLInfo := c.state.Queue[0]
 		c.state.Queue = c.state.Queue[1:]
 
@@ -328,6 +352,12 @@ func (c *Crawler) crawlConcurrent() {
 	var activeGoroutines atomic.Int64
 
 	for {
+		// Check for shutdown signal
+		if c.isShuttingDown() {
+			c.log.Info("Shutdown signal received, waiting for active goroutines to finish...")
+			break
+		}
+
 		// Check if we have URLs to process
 		if len(c.state.Queue) > 0 {
 			currentURLInfo := c.state.Queue[0]

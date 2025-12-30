@@ -183,7 +183,11 @@ func main() {
 		config.StateFile = folderName + "_state.json"
 	}
 
-	crawler := NewCrawler(config)
+	// Set up signal handling for graceful shutdown
+	ctx, cancel := SetupSignalHandler()
+	defer cancel()
+
+	crawler := NewCrawler(config, ctx)
 	if err := crawler.Start(); err != nil {
 		log.Fatal(err)
 	}
