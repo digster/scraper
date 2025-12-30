@@ -993,3 +993,180 @@ func TestPauseResume(t *testing.T) {
 		t.Error("crawler should not be paused after Resume()")
 	}
 }
+
+func TestExtractReadableContent(t *testing.T) {
+	ctx := context.Background()
+	config := Config{
+		URL:      "https://example.com",
+		MaxDepth: 10,
+	}
+	c := NewCrawler(config, ctx)
+
+	tests := []struct {
+		name           string
+		html           string
+		expectError    bool
+		expectNonEmpty bool
+	}{
+		{
+			name: "article with clear content",
+			html: `<!DOCTYPE html>
+<html>
+<head><title>Test Article</title></head>
+<body>
+<header><nav>Navigation</nav></header>
+<article>
+<h1>Main Article Title</h1>
+<p>This is the main content of the article. It contains meaningful text that should be extracted by the readability algorithm. The content needs to be substantial enough to be considered readable.</p>
+<p>Here is another paragraph with more content. This helps ensure that the readability algorithm has enough material to work with and can properly identify this as the main content.</p>
+</article>
+<footer>Footer content</footer>
+</body>
+</html>`,
+			expectError:    false,
+			expectNonEmpty: true,
+		},
+		{
+			name: "page with minimal content",
+			html: `<!DOCTYPE html>
+<html>
+<head><title>Empty Page</title></head>
+<body>
+<p>Short.</p>
+</body>
+</html>`,
+			expectError:    false,
+			expectNonEmpty: false, // May return empty or minimal content
+		},
+		{
+			name:           "malformed HTML",
+			html:           "<html><body><p>Some content</p>",
+			expectError:    false,
+			expectNonEmpty: false, // Should handle gracefully
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			content, err := c.extractReadableContent("https://example.com/article", tt.html)
+			if tt.expectError && err == nil {
+				t.Error("expected error but got none")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if tt.expectNonEmpty && content == "" {
+				t.Error("expected non-empty content")
+			}
+		})
+	}
+}
+
+func TestSaveContentWithReadability(t *testing.T) {
+	// Create a temporary directory for test files
+	tmpDir, err := os.MkdirTemp("", "crawler_readability_test")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	ctx := context.Background()
+
+	html := `<!DOCTYPE html>
+<html>
+<head><title>Test Article</title></head>
+<body>
+<article>
+<h1>Main Article Title</h1>
+<p>This is the main content of the article. It contains meaningful text that should be extracted by the readability algorithm. The content needs to be substantial enough to be considered readable.</p>
+<p>Here is another paragraph with more content. This helps ensure that the readability algorithm has enough material to work with and can properly identify this as the main content.</p>
+</article>
+</body>
+</html>`
+
+	t.Run("with readability enabled", func(t *testing.T) {
+		config := Config{
+			URL:                "https://example.com",
+			MaxDepth:           10,
+			OutputDir:          filepath.Join(tmpDir, "with_readability"),
+			DisableReadability: false,
+		}
+		c := NewCrawler(config, ctx)
+		c.log = &Logger{verbose: false}
+
+		err := os.MkdirAll(config.OutputDir, 0755)
+		if err != nil {
+			t.Fatalf("failed to create output dir: %v", err)
+		}
+
+		err = c.saveContent("https://example.com/article", []byte(html))
+		if err != nil {
+			t.Fatalf("saveContent failed: %v", err)
+		}
+
+		// Check that original HTML file exists
+		htmlFile := filepath.Join(config.OutputDir, "article.html")
+		if _, err := os.Stat(htmlFile); os.IsNotExist(err) {
+			t.Error("HTML file was not created")
+		}
+
+		// Check that content file exists (readability extracted content)
+		contentFile := filepath.Join(config.OutputDir, "article.content.html")
+		if _, err := os.Stat(contentFile); os.IsNotExist(err) {
+			t.Error("content file was not created")
+		}
+
+		// Check metadata file exists and contains readability_extracted field
+		metaFile := filepath.Join(config.OutputDir, "article.meta.json")
+		metaData, err := os.ReadFile(metaFile)
+		if err != nil {
+			t.Fatalf("failed to read meta file: %v", err)
+		}
+		if !strings.Contains(string(metaData), "\"readability_extracted\": true") {
+			t.Error("metadata should contain readability_extracted: true")
+		}
+	})
+
+	t.Run("with readability disabled", func(t *testing.T) {
+		config := Config{
+			URL:                "https://example.com",
+			MaxDepth:           10,
+			OutputDir:          filepath.Join(tmpDir, "without_readability"),
+			DisableReadability: true,
+		}
+		c := NewCrawler(config, ctx)
+		c.log = &Logger{verbose: false}
+
+		err := os.MkdirAll(config.OutputDir, 0755)
+		if err != nil {
+			t.Fatalf("failed to create output dir: %v", err)
+		}
+
+		err = c.saveContent("https://example.com/article", []byte(html))
+		if err != nil {
+			t.Fatalf("saveContent failed: %v", err)
+		}
+
+		// Check that original HTML file exists
+		htmlFile := filepath.Join(config.OutputDir, "article.html")
+		if _, err := os.Stat(htmlFile); os.IsNotExist(err) {
+			t.Error("HTML file was not created")
+		}
+
+		// Check that content file does NOT exist (readability disabled)
+		contentFile := filepath.Join(config.OutputDir, "article.content.html")
+		if _, err := os.Stat(contentFile); !os.IsNotExist(err) {
+			t.Error("content file should not be created when readability is disabled")
+		}
+
+		// Check metadata file contains readability_extracted: false
+		metaFile := filepath.Join(config.OutputDir, "article.meta.json")
+		metaData, err := os.ReadFile(metaFile)
+		if err != nil {
+			t.Fatalf("failed to read meta file: %v", err)
+		}
+		if !strings.Contains(string(metaData), "\"readability_extracted\": false") {
+			t.Error("metadata should contain readability_extracted: false")
+		}
+	})
+}

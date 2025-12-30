@@ -31,6 +31,7 @@ func main() {
 	flag.IntVar(&config.MinContentLength, "min-content", 100, "Minimum text content length (characters) for a page to be saved")
 	flag.BoolVar(&config.ShowProgress, "progress", true, "Show progress bar and statistics")
 	flag.StringVar(&config.MetricsFile, "metrics-json", "", "Output final metrics to JSON file")
+	flag.BoolVar(&config.DisableReadability, "no-readability", false, "Disable readability content extraction (extracts main article content by default)")
 	flag.Parse()
 
 	// Parse exclude extensions

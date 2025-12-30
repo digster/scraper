@@ -10,7 +10,24 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	readability "github.com/go-shiori/go-readability"
 )
+
+// extractReadableContent uses readability to extract the main article content from HTML
+func (c *Crawler) extractReadableContent(rawURL string, html string) (string, error) {
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse URL: %v", err)
+	}
+
+	article, err := readability.FromReader(strings.NewReader(html), parsedURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to extract readable content: %v", err)
+	}
+
+	// Return the simplified HTML content
+	return article.Content, nil
+}
 
 // hasContent checks if an HTML page has meaningful text content
 func (c *Crawler) hasContent(html string) bool {
@@ -66,13 +83,33 @@ func (c *Crawler) saveContent(rawURL string, content []byte) error {
 		"size":      len(content),
 	}
 
-	metaData, _ := json.MarshalIndent(metadata, "", "  ")
-	metaFile := strings.TrimSuffix(fullPath, ".html") + ".meta.json"
-
-	// Save both files
+	// Save original HTML file
 	if err := os.WriteFile(fullPath, content, 0644); err != nil {
 		return err
 	}
+
+	// Extract and save readable content if enabled
+	readabilityExtracted := false
+	if !c.config.DisableReadability {
+		readableContent, err := c.extractReadableContent(rawURL, string(content))
+		if err != nil {
+			c.log.Debug("Failed to extract readable content for %s: %v", rawURL, err)
+		} else if readableContent != "" {
+			// Save extracted content to .content.html file
+			contentFile := strings.TrimSuffix(fullPath, ".html") + ".content.html"
+			if err := os.WriteFile(contentFile, []byte(readableContent), 0644); err != nil {
+				c.log.Debug("Failed to save readable content for %s: %v", rawURL, err)
+			} else {
+				readabilityExtracted = true
+				metadata["content_file"] = strings.TrimSuffix(filename, ".html") + ".content.html"
+				metadata["content_size"] = len(readableContent)
+			}
+		}
+	}
+	metadata["readability_extracted"] = readabilityExtracted
+
+	metaData, _ := json.MarshalIndent(metadata, "", "  ")
+	metaFile := strings.TrimSuffix(fullPath, ".html") + ".meta.json"
 
 	return os.WriteFile(metaFile, metaData, 0644)
 }

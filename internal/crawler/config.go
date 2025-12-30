@@ -15,21 +15,22 @@ const MaxDirNameLength = 100
 
 // Config holds all configuration options for the crawler
 type Config struct {
-	URL               string
-	Concurrent        bool
-	Delay             time.Duration
-	MaxDepth          int
-	OutputDir         string
-	StateFile         string
-	PrefixFilterURL   string
-	ExcludeExtensions []string
-	LinkSelectors     []string
-	Verbose           bool
-	UserAgent         string
-	IgnoreRobots      bool
-	MinContentLength  int
-	ShowProgress      bool
-	MetricsFile       string
+	URL                string
+	Concurrent         bool
+	Delay              time.Duration
+	MaxDepth           int
+	OutputDir          string
+	StateFile          string
+	PrefixFilterURL    string
+	ExcludeExtensions  []string
+	LinkSelectors      []string
+	Verbose            bool
+	UserAgent          string
+	IgnoreRobots       bool
+	MinContentLength   int
+	ShowProgress       bool
+	MetricsFile        string
+	DisableReadability bool
 }
 
 // ValidateConfig checks that configuration values are valid

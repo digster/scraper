@@ -37,19 +37,20 @@ func (a *App) Emit(event crawler.CrawlerEvent) {
 
 // CrawlConfig is the configuration passed from the frontend
 type CrawlConfig struct {
-	URL               string `json:"url"`
-	Concurrent        bool   `json:"concurrent"`
-	Delay             string `json:"delay"`
-	MaxDepth          int    `json:"maxDepth"`
-	OutputDir         string `json:"outputDir"`
-	StateFile         string `json:"stateFile"`
-	PrefixFilterURL   string `json:"prefixFilter"`
-	ExcludeExtensions string `json:"excludeExtensions"`
-	LinkSelectors     string `json:"linkSelectors"`
-	Verbose           bool   `json:"verbose"`
-	UserAgent         string `json:"userAgent"`
-	IgnoreRobots      bool   `json:"ignoreRobots"`
-	MinContentLength  int    `json:"minContent"`
+	URL                string `json:"url"`
+	Concurrent         bool   `json:"concurrent"`
+	Delay              string `json:"delay"`
+	MaxDepth           int    `json:"maxDepth"`
+	OutputDir          string `json:"outputDir"`
+	StateFile          string `json:"stateFile"`
+	PrefixFilterURL    string `json:"prefixFilter"`
+	ExcludeExtensions  string `json:"excludeExtensions"`
+	LinkSelectors      string `json:"linkSelectors"`
+	Verbose            bool   `json:"verbose"`
+	UserAgent          string `json:"userAgent"`
+	IgnoreRobots       bool   `json:"ignoreRobots"`
+	MinContentLength   int    `json:"minContent"`
+	DisableReadability bool   `json:"disableReadability"`
 }
 
 // StartCrawl starts the crawler with the given configuration
@@ -69,18 +70,19 @@ func (a *App) StartCrawl(cfg CrawlConfig) error {
 
 	// Build config
 	config := crawler.Config{
-		URL:              cfg.URL,
-		Concurrent:       cfg.Concurrent,
-		Delay:            delay,
-		MaxDepth:         cfg.MaxDepth,
-		OutputDir:        cfg.OutputDir,
-		StateFile:        cfg.StateFile,
-		PrefixFilterURL:  cfg.PrefixFilterURL,
-		Verbose:          cfg.Verbose,
-		UserAgent:        cfg.UserAgent,
-		IgnoreRobots:     cfg.IgnoreRobots,
-		MinContentLength: cfg.MinContentLength,
-		ShowProgress:     false, // GUI handles progress display
+		URL:                cfg.URL,
+		Concurrent:         cfg.Concurrent,
+		Delay:              delay,
+		MaxDepth:           cfg.MaxDepth,
+		OutputDir:          cfg.OutputDir,
+		StateFile:          cfg.StateFile,
+		PrefixFilterURL:    cfg.PrefixFilterURL,
+		Verbose:            cfg.Verbose,
+		UserAgent:          cfg.UserAgent,
+		IgnoreRobots:       cfg.IgnoreRobots,
+		MinContentLength:   cfg.MinContentLength,
+		ShowProgress:       false, // GUI handles progress display
+		DisableReadability: cfg.DisableReadability,
 	}
 
 	// Parse exclude extensions

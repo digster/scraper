@@ -20,6 +20,7 @@ Ask any clarifying questions if needed.
 - **Concurrent/Sequential Mode**: Choose between concurrent or sequential crawling
 - **Configurable Delays**: Set delays between fetches to be respectful to servers
 - **Content Validation**: Only saves pages with meaningful content (>100 characters of text)
+- **Readability Extraction**: Automatically extracts main article content using Mozilla's Readability algorithm
 - **Resume Functionality**: Automatically resumes from where it left off if interrupted
 - **State Persistence**: Saves crawling state to JSON file for resumption
 - **Progress Display**: Real-time progress bar with statistics (pages/second, queue size, etc.)
@@ -108,6 +109,7 @@ Simply run the built application or use `wails dev` for development. All options
 - `-user-agent`: Custom User-Agent header for HTTP requests (default: WebScraper/1.0)
 - `-ignore-robots`: Ignore robots.txt rules (default: false)
 - `-min-content`: Minimum text content length (characters) for a page to be saved (default: 100)
+- `-no-readability`: Disable readability content extraction (enabled by default)
 - `-progress`: Show progress bar and statistics (default: true)
 - `-metrics-json`: Output final metrics to JSON file (optional)
 
@@ -136,27 +138,39 @@ Simply run the built application or use `wails dev` for development. All options
    - **With `-link-selectors`**: Only processes links matching the specified selectors
    - Examples: `a.internal` (links with class 'internal'), `.nav-link` (any element with class 'nav-link'), `#menu a` (links inside element with id 'menu')
 
-6. **File Storage**: Each page is saved as:
-   - `{path}.html`: The actual HTML content
-   - `{path}.meta.json`: Metadata including original URL, timestamp, and size
+6. **Readability Extraction**: By default, extracts main article content using Mozilla's Readability algorithm
+   - Removes navigation, ads, sidebars, and other clutter
+   - Preserves article structure (headings, paragraphs, lists)
+   - Can be disabled with `-no-readability` flag
+
+7. **File Storage**: Each page is saved as:
+   - `{path}.html`: The original HTML content
+   - `{path}.content.html`: The extracted readable content (if readability enabled)
+   - `{path}.meta.json`: Metadata including original URL, timestamp, size, and readability extraction status
    - Query parameters are included in filenames to avoid collisions (e.g., `/articles?id=1` → `articles_id-1.html`)
 
-7. **Resume Capability**: State is saved periodically and can be resumed by running the same command again
+8. **Resume Capability**: State is saved periodically and can be resumed by running the same command again
 
 ## Output Structure
 
 ```
 scraped_content/
-├── index.html                    # Root page
-├── index.meta.json
+├── index.html                    # Original HTML (root page)
+├── index.content.html            # Extracted readable content
+├── index.meta.json               # Metadata with readability status
 ├── articles.html                 # /articles
+├── articles.content.html
 ├── articles.meta.json
 ├── articles_id-1.html            # /articles?id=1
+├── articles_id-1.content.html
 ├── articles_id-1.meta.json
 ├── articles_id-2.html            # /articles?id=2
+├── articles_id-2.content.html
 ├── articles_id-2.meta.json
 ├── blog/
-│   └── posts_page-1.html         # /blog/posts?page=1
+│   ├── posts_page-1.html         # /blog/posts?page=1
+│   ├── posts_page-1.content.html
+│   └── posts_page-1.meta.json
 └── ...
 ```
 
@@ -198,6 +212,11 @@ Simply run the same command again - it will automatically resume from the state 
 ### Export metrics to JSON
 ```bash
 ./scraper -url https://example.com -metrics-json crawl_metrics.json
+```
+
+### Disable readability extraction (save only raw HTML)
+```bash
+./scraper -url https://example.com -no-readability
 ```
 
 ### Run without progress display
