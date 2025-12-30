@@ -4,7 +4,9 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestGenerateFilename(t *testing.T) {
@@ -588,6 +590,143 @@ func TestStateBackwardCompatibility(t *testing.T) {
 	}
 	if !c.state.Queued["https://example.com/page2"] {
 		t.Error("Queued should contain page2 from queue")
+	}
+}
+
+func TestValidateConfig(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      Config
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "valid config",
+			config: Config{
+				URL:      "https://example.com",
+				MaxDepth: 10,
+				Delay:    time.Second,
+			},
+			expectError: false,
+		},
+		{
+			name: "empty URL",
+			config: Config{
+				URL:      "",
+				MaxDepth: 10,
+			},
+			expectError: true,
+			errorMsg:    "URL is required",
+		},
+		{
+			name: "invalid URL scheme",
+			config: Config{
+				URL:      "ftp://example.com",
+				MaxDepth: 10,
+			},
+			expectError: true,
+			errorMsg:    "URL must use http or https scheme",
+		},
+		{
+			name: "URL without host",
+			config: Config{
+				URL:      "https:///path",
+				MaxDepth: 10,
+			},
+			expectError: true,
+			errorMsg:    "URL must have a host",
+		},
+		{
+			name: "zero depth",
+			config: Config{
+				URL:      "https://example.com",
+				MaxDepth: 0,
+			},
+			expectError: true,
+			errorMsg:    "depth must be greater than 0",
+		},
+		{
+			name: "negative depth",
+			config: Config{
+				URL:      "https://example.com",
+				MaxDepth: -1,
+			},
+			expectError: true,
+			errorMsg:    "depth must be greater than 0",
+		},
+		{
+			name: "negative delay",
+			config: Config{
+				URL:      "https://example.com",
+				MaxDepth: 10,
+				Delay:    -time.Second,
+			},
+			expectError: true,
+			errorMsg:    "delay cannot be negative",
+		},
+		{
+			name: "valid prefix filter URL",
+			config: Config{
+				URL:             "https://example.com",
+				MaxDepth:        10,
+				PrefixFilterURL: "https://example.com/docs",
+			},
+			expectError: false,
+		},
+		{
+			name: "prefix filter set to none",
+			config: Config{
+				URL:             "https://example.com",
+				MaxDepth:        10,
+				PrefixFilterURL: "none",
+			},
+			expectError: false,
+		},
+		{
+			name: "invalid prefix filter URL scheme",
+			config: Config{
+				URL:             "https://example.com",
+				MaxDepth:        10,
+				PrefixFilterURL: "ftp://example.com",
+			},
+			expectError: true,
+			errorMsg:    "prefix-filter URL must use http or https scheme",
+		},
+		{
+			name: "prefix filter URL without host",
+			config: Config{
+				URL:             "https://example.com",
+				MaxDepth:        10,
+				PrefixFilterURL: "https:///path",
+			},
+			expectError: true,
+			errorMsg:    "prefix-filter URL must have a host",
+		},
+		{
+			name: "http URL is valid",
+			config: Config{
+				URL:      "http://example.com",
+				MaxDepth: 5,
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateConfig(&tt.config)
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error containing %q, got nil", tt.errorMsg)
+				} else if !strings.Contains(err.Error(), tt.errorMsg) {
+					t.Errorf("expected error containing %q, got %q", tt.errorMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("expected no error, got %v", err)
+				}
+			}
+		})
 	}
 }
 

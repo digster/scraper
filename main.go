@@ -28,6 +28,55 @@ type Config struct {
 	Verbose           bool
 }
 
+// validateConfig checks that configuration values are valid
+func validateConfig(config *Config) error {
+	// Validate URL
+	if config.URL == "" {
+		return fmt.Errorf("URL is required")
+	}
+
+	parsedURL, err := url.Parse(config.URL)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %v", err)
+	}
+
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return fmt.Errorf("URL must use http or https scheme, got: %s", parsedURL.Scheme)
+	}
+
+	if parsedURL.Host == "" {
+		return fmt.Errorf("URL must have a host")
+	}
+
+	// Validate MaxDepth
+	if config.MaxDepth <= 0 {
+		return fmt.Errorf("depth must be greater than 0, got: %d", config.MaxDepth)
+	}
+
+	// Validate Delay (duration can't be negative from flag parsing, but check anyway)
+	if config.Delay < 0 {
+		return fmt.Errorf("delay cannot be negative, got: %v", config.Delay)
+	}
+
+	// Validate PrefixFilterURL if provided
+	if config.PrefixFilterURL != "" && config.PrefixFilterURL != "none" {
+		prefixURL, err := url.Parse(config.PrefixFilterURL)
+		if err != nil {
+			return fmt.Errorf("invalid prefix-filter URL: %v", err)
+		}
+
+		if prefixURL.Scheme != "http" && prefixURL.Scheme != "https" {
+			return fmt.Errorf("prefix-filter URL must use http or https scheme, got: %s", prefixURL.Scheme)
+		}
+
+		if prefixURL.Host == "" {
+			return fmt.Errorf("prefix-filter URL must have a host")
+		}
+	}
+
+	return nil
+}
+
 func sanitizeDirName(name string) string {
 	// Replace invalid characters for directory names with underscores
 	// Invalid characters: < > : " | ? * \ / and control characters
@@ -83,10 +132,9 @@ func main() {
 		}
 	}
 
-	// Handle prefix filter URL - leave empty by default (no prefix filtering)
-
-	if config.URL == "" {
-		fmt.Println("Error: URL is required")
+	// Validate configuration
+	if err := validateConfig(&config); err != nil {
+		fmt.Printf("Error: %v\n", err)
 		flag.Usage()
 		os.Exit(1)
 	}
