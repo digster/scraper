@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -364,6 +365,13 @@ func (c *Crawler) Start() error {
 	}
 
 	EmitStateChange(c.emitter, EventCrawlCompleted)
+
+	// Generate index page
+	if err := GenerateIndex(c.config.OutputDir); err != nil {
+		c.log.Warn("Failed to generate index: %v", err)
+	} else {
+		c.log.Info("Generated index page at %s", filepath.Join(c.config.OutputDir, "_index.html"))
+	}
 
 	return SaveState(c.state, c.config.StateFile)
 }

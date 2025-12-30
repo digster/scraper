@@ -26,6 +26,7 @@ Ask any clarifying questions if needed.
 - **Progress Display**: Real-time progress bar with statistics (pages/second, queue size, etc.)
 - **Metrics Export**: Optional JSON export of crawl statistics
 - **Graceful Shutdown**: Handle SIGINT/SIGTERM signals and save state before exiting
+- **Index Page Generation**: Automatically creates a searchable `_index.html` report of all downloaded pages
 - **Desktop GUI**: Native desktop application with real-time progress, pause/resume controls, and log viewer
 
 ## GUI Features
@@ -155,6 +156,7 @@ Simply run the built application or use `wails dev` for development. All options
 
 ```
 scraped_content/
+├── _index.html                   # Generated index page with links to all content
 ├── index.html                    # Original HTML (root page)
 ├── index.content.html            # Extracted readable content
 ├── index.meta.json               # Metadata with readability status
@@ -173,6 +175,16 @@ scraped_content/
 │   └── posts_page-1.meta.json
 └── ...
 ```
+
+### Index Page
+
+After crawling completes, an `_index.html` file is automatically generated in the output directory. This index page provides:
+
+- **Searchable list**: Filter pages by URL or content in real-time
+- **Quick navigation**: Links to both raw HTML and extracted content for each page
+- **Content preview**: Expandable excerpts from each page's extracted content
+- **Metadata**: File sizes and timestamps for each downloaded page
+- **Dark/light mode**: Automatically adapts to your system theme
 
 ## Examples
 
