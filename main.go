@@ -12,6 +12,9 @@ import (
 	"time"
 )
 
+// MaxDirNameLength is the maximum length for directory names to avoid filesystem issues
+const MaxDirNameLength = 100
+
 type Config struct {
 	URL               string
 	Concurrent        bool
@@ -40,8 +43,8 @@ func sanitizeDirName(name string) string {
 	}
 
 	// Limit length to avoid filesystem issues
-	if len(sanitized) > 100 {
-		sanitized = sanitized[:100]
+	if len(sanitized) > MaxDirNameLength {
+		sanitized = sanitized[:MaxDirNameLength]
 	}
 
 	return sanitized

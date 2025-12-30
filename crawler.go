@@ -17,6 +17,24 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
+// Crawler configuration constants
+const (
+	// HTTPTimeout is the timeout for HTTP requests
+	HTTPTimeout = 30 * time.Second
+
+	// MaxConcurrentRequests is the maximum number of simultaneous requests in concurrent mode
+	MaxConcurrentRequests = 10
+
+	// StateSaveInterval is how often state is saved (every N processed URLs)
+	StateSaveInterval = 10
+
+	// QueueEmptyWaitTime is how long to wait when queue is empty but goroutines are active
+	QueueEmptyWaitTime = 100 * time.Millisecond
+
+	// MinContentLength is the minimum text length (characters) for a page to be considered having meaningful content
+	MinContentLength = 100
+)
+
 // Logger provides leveled logging for the crawler
 type Logger struct {
 	verbose bool
@@ -72,13 +90,13 @@ func NewCrawler(config Config) *Crawler {
 	c := &Crawler{
 		config: config,
 		client: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: HTTPTimeout,
 		},
 		log: &Logger{verbose: config.Verbose},
 	}
 
 	if config.Concurrent {
-		c.semaphore = make(chan struct{}, 10) // Limit to 10 concurrent requests
+		c.semaphore = make(chan struct{}, MaxConcurrentRequests)
 	}
 
 	return c
@@ -339,7 +357,7 @@ func (c *Crawler) crawlSequential() {
 		time.Sleep(c.config.Delay)
 
 		// Save state periodically
-		if c.state.Processed%10 == 0 {
+		if c.state.Processed%StateSaveInterval == 0 {
 			c.log.Debug("Saving state at %d processed URLs", c.state.Processed)
 			if err := c.saveState(); err != nil {
 				c.log.Warn("Failed to save state: %v", err)
@@ -396,7 +414,7 @@ func (c *Crawler) crawlConcurrent() {
 			}(currentURLInfo)
 
 			// Save state periodically
-			if c.state.Processed%10 == 0 {
+			if c.state.Processed%StateSaveInterval == 0 {
 				c.log.Debug("Concurrent - Waiting for goroutines before saving state at %d processed URLs", c.state.Processed)
 				c.wg.Wait()
 				if err := c.saveState(); err != nil {
@@ -414,7 +432,7 @@ func (c *Crawler) crawlConcurrent() {
 			} else {
 				// Wait a bit for goroutines to potentially add more URLs
 				c.log.Debug("Concurrent - Queue empty but %d goroutines still active, waiting...", currentActive)
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(QueueEmptyWaitTime)
 			}
 		}
 	}
@@ -511,8 +529,8 @@ func (c *Crawler) hasContent(html string) bool {
 	// Get text content
 	text := strings.TrimSpace(doc.Text())
 
-	// Consider page has content if it has more than 100 characters of text
-	return len(text) > 100
+	// Consider page has content if it has more than MinContentLength characters of text
+	return len(text) > MinContentLength
 }
 
 func (c *Crawler) saveContent(rawURL string, content []byte) error {
