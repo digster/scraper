@@ -9,6 +9,14 @@
   let status;
   crawlerStore.subscribe(value => status = value.status);
 
+  // Update store directly from input event (fixes timing issue with bind:value)
+  function handleInput(field) {
+    return (e) => {
+      const value = e.target.type === 'number' ? parseInt(e.target.value) || 0 : e.target.value;
+      configStore.update(c => ({ ...c, [field]: value }));
+    };
+  }
+
   // Tooltip descriptions for options
   const tooltips = {
     maxDepth: "Maximum number of link hops from the starting URL. Depth is measured by discovery steps, not URL path depth.",
@@ -61,6 +69,7 @@
       type="url"
       id="url"
       bind:value={config.url}
+      on:input={handleInput('url')}
       placeholder="https://example.com"
       disabled={status !== 'stopped'}
     />
@@ -90,6 +99,7 @@
         type="number"
         id="depth"
         bind:value={config.maxDepth}
+        on:input={handleInput('maxDepth')}
         min="1"
         disabled={status !== 'stopped'}
       />

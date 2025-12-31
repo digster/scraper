@@ -107,10 +107,7 @@ func (a *App) StartCrawl(cfg CrawlConfig) error {
 		config.LinkSelectors = selectors
 	}
 
-	// Set defaults
-	if config.MaxDepth == 0 {
-		config.MaxDepth = 10
-	}
+	// Set defaults for optional fields (but not MaxDepth - let validation catch invalid values)
 	if config.MinContentLength == 0 {
 		config.MinContentLength = 100
 	}
