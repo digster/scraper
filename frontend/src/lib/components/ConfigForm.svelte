@@ -26,6 +26,7 @@
     concurrent: "Process multiple URLs in parallel (up to 10 simultaneous requests). Faster but more resource intensive.",
     ignoreRobots: "Bypass robots.txt rules that restrict crawling. Use responsibly and only when permitted.",
     headless: "Run browser without visible window. Disable for debugging or manual CAPTCHA solving.",
+    waitForLogin: "Pause before crawling to allow manual login. Browser will open to the URL, letting you log in before the crawl begins.",
     prefixFilter: "Only crawl URLs that start with this prefix. Leave empty to crawl any discovered URL.",
     excludeExtensions: "Skip downloading files with these extensions (comma-separated). Useful for excluding assets like images or scripts.",
     linkSelectors: "CSS selectors to filter which links to follow. Default follows all links with href attribute.",
@@ -160,6 +161,17 @@
           Headless
           <span class="info-icon" data-tooltip={tooltips.headless}>i</span>
         </label>
+        {#if !config.headless}
+          <label class="wait-login-toggle">
+            <input
+              type="checkbox"
+              bind:checked={config.waitForLogin}
+              disabled={status !== 'stopped'}
+            />
+            Wait for Login
+            <span class="info-icon" data-tooltip={tooltips.waitForLogin}>i</span>
+          </label>
+        {/if}
       {/if}
     </div>
   </div>
@@ -401,7 +413,9 @@
   .fetch-mode-row {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
+    flex-wrap: wrap;
+    row-gap: 8px;
   }
 
   select {
@@ -472,6 +486,27 @@
   }
 
   .headless-toggle .info-icon {
+    margin-left: 2px;
+    vertical-align: middle;
+    transform: none;
+  }
+
+  .wait-login-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #ccc;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+
+  .wait-login-toggle input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+
+  .wait-login-toggle .info-icon {
     margin-left: 2px;
     vertical-align: middle;
     transform: none;

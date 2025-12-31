@@ -48,6 +48,7 @@ function createConfigStore() {
         minContent: 100,
         fetchMode: 'http',
         headless: true,
+        waitForLogin: false,
     });
 
     return {
@@ -69,6 +70,7 @@ function createConfigStore() {
             minContent: 100,
             fetchMode: 'http',
             headless: true,
+            waitForLogin: false,
         }),
     };
 }

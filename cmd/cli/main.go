@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"log"
@@ -35,6 +36,7 @@ func main() {
 	flag.BoolVar(&config.DisableReadability, "no-readability", false, "Disable readability content extraction (extracts main article content by default)")
 	flag.StringVar(&fetchMode, "fetch-mode", "http", "Fetch mode: 'http' for standard HTTP client, 'browser' for real browser via chromedp")
 	flag.BoolVar(&config.Headless, "headless", true, "Run browser in headless mode (only applies when fetch-mode=browser)")
+	flag.BoolVar(&config.WaitForLogin, "wait-login", false, "Wait for manual login before crawling (only applies when fetch-mode=browser and headless=false)")
 	flag.Parse()
 
 	// Set fetch mode
@@ -80,6 +82,23 @@ func main() {
 		log.Fatal("Failed to create crawler:", err)
 	}
 	defer c.Close()
+
+	// If wait-login is enabled, set up a goroutine to wait for Enter key
+	if config.WaitForLogin && config.FetchMode == crawler.FetchModeBrowser && !config.Headless {
+		go func() {
+			// Give the crawler a moment to start and enter login wait state
+			time.Sleep(500 * time.Millisecond)
+
+			// Check if the crawler is waiting for login
+			for c.IsWaitingForLogin() {
+				fmt.Println("\nBrowser opened. Complete login, then press ENTER to start crawling...")
+				reader := bufio.NewReader(os.Stdin)
+				_, _ = reader.ReadString('\n')
+				c.ConfirmLogin()
+				break
+			}
+		}()
+	}
 
 	if err := c.Start(); err != nil {
 		log.Fatal(err)

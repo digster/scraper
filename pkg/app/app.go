@@ -53,6 +53,7 @@ type CrawlConfig struct {
 	DisableReadability bool   `json:"disableReadability"`
 	FetchMode          string `json:"fetchMode"`
 	Headless           bool   `json:"headless"`
+	WaitForLogin       bool   `json:"waitForLogin"`
 }
 
 // StartCrawl starts the crawler with the given configuration
@@ -93,6 +94,7 @@ func (a *App) StartCrawl(cfg CrawlConfig) error {
 		DisableReadability: cfg.DisableReadability,
 		FetchMode:          fetchMode,
 		Headless:           cfg.Headless,
+		WaitForLogin:       cfg.WaitForLogin,
 	}
 
 	// Parse exclude extensions
@@ -197,9 +199,10 @@ func (a *App) ResumeCrawl() error {
 
 // GetStatus returns the current crawler status
 type CrawlerStatus struct {
-	Running bool   `json:"running"`
-	Paused  bool   `json:"paused"`
-	Status  string `json:"status"`
+	Running         bool   `json:"running"`
+	Paused          bool   `json:"paused"`
+	WaitingForLogin bool   `json:"waitingForLogin"`
+	Status          string `json:"status"`
 }
 
 func (a *App) GetStatus() CrawlerStatus {
@@ -213,7 +216,10 @@ func (a *App) GetStatus() CrawlerStatus {
 
 	if a.running && a.crawler != nil {
 		status.Paused = a.crawler.IsPaused()
-		if status.Paused {
+		status.WaitingForLogin = a.crawler.IsWaitingForLogin()
+		if status.WaitingForLogin {
+			status.Status = "waiting_for_login"
+		} else if status.Paused {
 			status.Status = "paused"
 		} else {
 			status.Status = "running"
@@ -221,6 +227,23 @@ func (a *App) GetStatus() CrawlerStatus {
 	}
 
 	return status
+}
+
+// ConfirmLogin signals that manual login is complete
+func (a *App) ConfirmLogin() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if a.crawler == nil {
+		return fmt.Errorf("no crawler running")
+	}
+
+	if !a.crawler.IsWaitingForLogin() {
+		return fmt.Errorf("crawler is not waiting for login")
+	}
+
+	a.crawler.ConfirmLogin()
+	return nil
 }
 
 // MetricsSnapshot is the metrics data sent to the frontend

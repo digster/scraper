@@ -43,6 +43,7 @@ type Config struct {
 	DisableReadability bool
 	FetchMode          FetchMode
 	Headless           bool
+	WaitForLogin       bool
 }
 
 // ValidateConfig checks that configuration values are valid

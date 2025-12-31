@@ -96,6 +96,9 @@ type Crawler struct {
 	paused       bool
 	pauseMu      sync.Mutex
 	pauseCond    *sync.Cond
+	loginDone    chan struct{}
+	loginWaiting bool
+	loginMu      sync.Mutex
 }
 
 // NewCrawler creates a new Crawler instance with the given configuration
@@ -210,6 +213,23 @@ func (c *Crawler) Resume() {
 	c.pauseCond.Broadcast()
 	c.pauseMu.Unlock()
 	EmitStateChange(c.emitter, EventCrawlResumed)
+}
+
+// IsWaitingForLogin returns whether the crawler is waiting for manual login
+func (c *Crawler) IsWaitingForLogin() bool {
+	c.loginMu.Lock()
+	defer c.loginMu.Unlock()
+	return c.loginWaiting
+}
+
+// ConfirmLogin signals that manual login is complete
+func (c *Crawler) ConfirmLogin() {
+	c.loginMu.Lock()
+	defer c.loginMu.Unlock()
+	if c.loginDone != nil && c.loginWaiting {
+		close(c.loginDone)
+		c.loginWaiting = false
+	}
 }
 
 // Stop stops the crawler gracefully
@@ -370,6 +390,41 @@ func (c *Crawler) Start() error {
 		c.state.Queue = append(c.state.Queue, URLInfo{URL: c.config.URL, Depth: 0})
 		c.state.URLDepths[c.config.URL] = 0
 		c.state.Queued[c.config.URL] = true
+	}
+
+	// Handle login wait for non-headless browser mode
+	if c.config.WaitForLogin && c.config.FetchMode == FetchModeBrowser && !c.config.Headless {
+		if bf, ok := c.fetcher.(*BrowserFetcher); ok {
+			c.log.Info("Opening browser for login at: %s", c.config.URL)
+
+			// Navigate browser to initial URL
+			closeTab, err := bf.NavigateForLogin(c.config.URL)
+			if err != nil {
+				return fmt.Errorf("failed to open browser for login: %w", err)
+			}
+
+			// Set up login wait state
+			c.loginMu.Lock()
+			c.loginDone = make(chan struct{})
+			c.loginWaiting = true
+			c.loginMu.Unlock()
+
+			// Emit event to notify frontend/CLI
+			EmitWaitingForLogin(c.emitter, c.config.URL)
+			c.log.Info("Waiting for login confirmation...")
+
+			// Wait for login confirmation or cancellation
+			select {
+			case <-c.loginDone:
+				c.log.Info("Login confirmed, starting crawl...")
+			case <-c.ctx.Done():
+				closeTab()
+				return fmt.Errorf("crawl cancelled while waiting for login")
+			}
+
+			// Close the login tab
+			closeTab()
+		}
 	}
 
 	c.log.Info("Starting crawler with %d URLs in queue", len(c.state.Queue))

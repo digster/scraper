@@ -124,6 +124,32 @@ func (f *BrowserFetcher) Fetch(rawURL string, userAgent string) (*FetchResult, e
 	}, nil
 }
 
+// NavigateForLogin opens a URL in the browser and returns a cancel function to close the tab.
+// This is used for manual login - the tab stays open until the cancel function is called.
+// Session data (cookies, etc.) will persist in the browser context for subsequent fetches.
+func (f *BrowserFetcher) NavigateForLogin(rawURL string) (context.CancelFunc, error) {
+	// Create a new tab context for login
+	tabCtx, cancel := chromedp.NewContext(f.browserCtx)
+
+	// Set timeout for the page load (but not for the overall login wait)
+	loadCtx, loadCancel := context.WithTimeout(tabCtx, HTTPTimeout)
+	defer loadCancel()
+
+	// Navigate to the URL
+	err := chromedp.Run(loadCtx,
+		network.Enable(),
+		chromedp.Navigate(rawURL),
+		chromedp.WaitReady("body", chromedp.ByQuery),
+	)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to navigate for login: %w", err)
+	}
+
+	// Return the cancel function - caller should call it after login is complete
+	return cancel, nil
+}
+
 // Close releases browser resources
 func (f *BrowserFetcher) Close() error {
 	f.cancelFunc()

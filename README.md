@@ -117,6 +117,7 @@ Simply run the built application or use `wails dev` for development. All options
 - `-metrics-json`: Output final metrics to JSON file (optional)
 - `-fetch-mode`: Fetch mode - 'http' for standard HTTP client, 'browser' for real Chrome browser (default: http)
 - `-headless`: Run browser in headless mode when using browser fetch mode (default: true)
+- `-wait-login`: Wait for manual login before crawling; only applies when using browser mode with headless=false (default: false)
 
 ## How It Works
 
@@ -275,6 +276,28 @@ Uses a real Chrome/Chromium browser via chromedp. This renders JavaScript and be
 - Chrome or Chromium must be installed on the system
 - More resource-intensive than HTTP mode
 - Useful when sites block non-browser user agents
+
+### Wait for Login
+
+When crawling sites that require authentication, you can use the "Wait for Login" feature to manually log in before the crawl begins:
+
+1. Select **Browser (Chrome)** as the Fetch Mode
+2. Uncheck **Headless** to show the browser window
+3. Check **Wait for Login**
+4. Click **Start** - the browser will open to your target URL
+5. Complete the login process in the browser window
+6. Click "Login Complete" in the app (GUI) or press Enter (CLI)
+7. Crawling will begin with your authenticated session
+
+**CLI Usage:**
+```bash
+./scraper -url https://example.com -fetch-mode browser -headless=false -wait-login
+```
+
+**GUI Usage:**
+When using browser mode with headless disabled, a "Wait for Login" checkbox will appear. Enable it, then start the crawl. A modal dialog will appear prompting you to complete login in the browser window. Click "Login Complete - Start Crawling" when ready.
+
+**Note:** Session cookies are preserved in the browser context, so all subsequent page fetches during the crawl will use your authenticated session.
 
 ## Notes
 

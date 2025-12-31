@@ -6,16 +6,17 @@ import "time"
 type EventType string
 
 const (
-	EventProgress       EventType = "progress"
-	EventLogMessage     EventType = "log"
-	EventURLProcessed   EventType = "url_processed"
-	EventStateChanged   EventType = "state_changed"
-	EventCrawlStarted   EventType = "crawl_started"
-	EventCrawlStopped   EventType = "crawl_stopped"
-	EventCrawlPaused    EventType = "crawl_paused"
-	EventCrawlResumed   EventType = "crawl_resumed"
-	EventCrawlCompleted EventType = "crawl_completed"
-	EventError          EventType = "error"
+	EventProgress        EventType = "progress"
+	EventLogMessage      EventType = "log"
+	EventURLProcessed    EventType = "url_processed"
+	EventStateChanged    EventType = "state_changed"
+	EventCrawlStarted    EventType = "crawl_started"
+	EventCrawlStopped    EventType = "crawl_stopped"
+	EventCrawlPaused     EventType = "crawl_paused"
+	EventCrawlResumed    EventType = "crawl_resumed"
+	EventCrawlCompleted  EventType = "crawl_completed"
+	EventError           EventType = "error"
+	EventWaitingForLogin EventType = "waiting_for_login"
 )
 
 // CrawlerEvent represents an event emitted by the crawler
@@ -121,6 +122,21 @@ func EmitError(emitter EventEmitter, message string) {
 		Data: LogData{
 			Level:   "error",
 			Message: message,
+		},
+	})
+}
+
+// EmitWaitingForLogin sends a waiting for login event
+func EmitWaitingForLogin(emitter EventEmitter, url string) {
+	if emitter == nil {
+		return
+	}
+
+	emitter.Emit(CrawlerEvent{
+		Type:      EventWaitingForLogin,
+		Timestamp: time.Now(),
+		Data: map[string]string{
+			"url": url,
 		},
 	})
 }

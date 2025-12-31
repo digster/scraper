@@ -5,8 +5,22 @@
   import ProgressDashboard from './lib/components/ProgressDashboard.svelte';
   import LogViewer from './lib/components/LogViewer.svelte';
   import ControlButtons from './lib/components/ControlButtons.svelte';
+  import LoginModal from './lib/components/LoginModal.svelte';
 
   let showAdvanced = false;
+  let showLoginModal = false;
+  let loginUrl = '';
+
+  async function handleLoginConfirm() {
+    if (window.go && window.go.app && window.go.app.App) {
+      try {
+        await window.go.app.App.ConfirmLogin();
+        showLoginModal = false;
+      } catch (e) {
+        crawlerStore.setError(e.toString());
+      }
+    }
+  }
 
   onMount(() => {
     // Set up event listeners for Wails events
@@ -38,14 +52,22 @@
 
       window.runtime.EventsOn('crawl_stopped', () => {
         crawlerStore.setStatus('stopped');
+        showLoginModal = false;
       });
 
       window.runtime.EventsOn('crawl_completed', () => {
         crawlerStore.setStatus('stopped');
+        showLoginModal = false;
       });
 
       window.runtime.EventsOn('error', (event) => {
         crawlerStore.setError(event.data.message);
+      });
+
+      window.runtime.EventsOn('waiting_for_login', (event) => {
+        loginUrl = event.data.url;
+        showLoginModal = true;
+        crawlerStore.setStatus('waiting_for_login');
       });
     }
   });
@@ -67,6 +89,12 @@
       <LogViewer />
     </div>
   </div>
+
+  <LoginModal
+    visible={showLoginModal}
+    url={loginUrl}
+    on:confirm={handleLoginConfirm}
+  />
 </main>
 
 <style>
