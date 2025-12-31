@@ -94,7 +94,7 @@
     <div class="form-group">
       <label for="depth">
         Max Depth
-        <span class="info-icon" data-tooltip={tooltips.maxDepth}>i</span>
+        <span class="info-icon" title={tooltips.maxDepth}>i</span>
       </label>
       <input
         type="number"
@@ -109,7 +109,7 @@
     <div class="form-group">
       <label for="delay">
         Delay
-        <span class="info-icon" data-tooltip={tooltips.delay}>i</span>
+        <span class="info-icon" title={tooltips.delay}>i</span>
       </label>
       <input
         type="text"
@@ -125,7 +125,7 @@
     <div class="form-group">
       <label for="minContent">
         Min Content
-        <span class="info-icon" data-tooltip={tooltips.minContent}>i</span>
+        <span class="info-icon" title={tooltips.minContent}>i</span>
       </label>
       <input
         type="number"
@@ -140,7 +140,7 @@
   <div class="form-group fetch-mode-group">
     <label for="fetchMode">
       Fetch Mode
-      <span class="info-icon" data-tooltip={tooltips.fetchMode}>i</span>
+      <span class="info-icon" title={tooltips.fetchMode}>i</span>
     </label>
     <div class="fetch-mode-row">
       <select
@@ -159,7 +159,7 @@
             disabled={status !== 'stopped'}
           />
           Headless
-          <span class="info-icon" data-tooltip={tooltips.headless}>i</span>
+          <span class="info-icon" title={tooltips.headless}>i</span>
         </label>
         {#if !config.headless}
           <label class="wait-login-toggle">
@@ -169,7 +169,7 @@
               disabled={status !== 'stopped'}
             />
             Wait for Login
-            <span class="info-icon" data-tooltip={tooltips.waitForLogin}>i</span>
+            <span class="info-icon" title={tooltips.waitForLogin}>i</span>
           </label>
         {/if}
       {/if}
@@ -180,12 +180,12 @@
     <label>
       <input type="checkbox" bind:checked={config.concurrent} disabled={status !== 'stopped'} />
       Concurrent Mode
-      <span class="info-icon" data-tooltip={tooltips.concurrent}>i</span>
+      <span class="info-icon" title={tooltips.concurrent}>i</span>
     </label>
     <label>
       <input type="checkbox" bind:checked={config.ignoreRobots} disabled={status !== 'stopped'} />
       Ignore robots.txt
-      <span class="info-icon" data-tooltip={tooltips.ignoreRobots}>i</span>
+      <span class="info-icon" title={tooltips.ignoreRobots}>i</span>
     </label>
     <label>
       <input type="checkbox" bind:checked={config.verbose} disabled={status !== 'stopped'} />
@@ -202,7 +202,7 @@
       <div class="form-group">
         <label for="prefixFilter">
           Prefix Filter
-          <span class="info-icon" data-tooltip={tooltips.prefixFilter}>i</span>
+          <span class="info-icon" title={tooltips.prefixFilter}>i</span>
         </label>
         <input
           type="text"
@@ -216,7 +216,7 @@
       <div class="form-group">
         <label for="excludeExtensions">
           Exclude Extensions
-          <span class="info-icon" data-tooltip={tooltips.excludeExtensions}>i</span>
+          <span class="info-icon" title={tooltips.excludeExtensions}>i</span>
         </label>
         <input
           type="text"
@@ -230,7 +230,7 @@
       <div class="form-group">
         <label for="linkSelectors">
           Link Selectors
-          <span class="info-icon" data-tooltip={tooltips.linkSelectors}>i</span>
+          <span class="info-icon" title={tooltips.linkSelectors}>i</span>
         </label>
         <input
           type="text"
@@ -244,7 +244,7 @@
       <div class="form-group">
         <label for="userAgent">
           User Agent
-          <span class="info-icon" data-tooltip={tooltips.userAgent}>i</span>
+          <span class="info-icon" title={tooltips.userAgent}>i</span>
         </label>
         <input
           type="text"
@@ -267,7 +267,7 @@
       <div class="form-group">
         <label for="stateFile">
           State File
-          <span class="info-icon" data-tooltip={tooltips.stateFile}>i</span>
+          <span class="info-icon" title={tooltips.stateFile}>i</span>
         </label>
         <div class="input-with-button">
           <input
@@ -510,42 +510,5 @@
     margin-left: 2px;
     vertical-align: middle;
     transform: none;
-  }
-
-  .info-icon[data-tooltip] {
-    position: relative;
-  }
-
-  .info-icon[data-tooltip]:hover::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    left: calc(100% + 8px);
-    top: 50%;
-    transform: translateY(-50%);
-    background: #1a2847;
-    color: #ddd;
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 0.75rem;
-    font-weight: normal;
-    font-style: normal;
-    white-space: normal;
-    width: max-content;
-    max-width: 220px;
-    line-height: 1.4;
-    z-index: 1000;
-    border: 1px solid #2a3f5f;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  }
-
-  .info-icon[data-tooltip]:hover::before {
-    content: '';
-    position: absolute;
-    left: calc(100% + 2px);
-    top: 50%;
-    transform: translateY(-50%);
-    border: 6px solid transparent;
-    border-right-color: #2a3f5f;
-    z-index: 1001;
   }
 </style>
