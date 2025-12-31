@@ -210,7 +210,7 @@
           type="text"
           id="excludeExtensions"
           bind:value={config.excludeExtensions}
-          placeholder="js,css,png,jpg"
+          placeholder="e.g., js,css,png,jpg"
           disabled={status !== 'stopped'}
         />
       </div>
@@ -224,7 +224,7 @@
           type="text"
           id="linkSelectors"
           bind:value={config.linkSelectors}
-          placeholder="a[href], .nav-link"
+          placeholder="e.g., a[href], .nav-link"
           disabled={status !== 'stopped'}
         />
       </div>
@@ -239,7 +239,7 @@
           id="userAgent"
           list="userAgentOptions"
           bind:value={config.userAgent}
-          placeholder="Default WebScraper/1.0"
+          placeholder="Default: WebScraper/1.0"
           disabled={status !== 'stopped'}
         />
         <datalist id="userAgentOptions">
