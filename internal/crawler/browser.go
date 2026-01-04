@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/network"
+	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 )
 
@@ -19,6 +22,10 @@ type BrowserFetcher struct {
 	cancelFunc  context.CancelFunc
 	headless    bool
 	userAgent   string
+	antiBot     AntiBotConfig
+	userAgents  []string
+	uaIndex     int
+	uaMu        sync.Mutex
 }
 
 // NewBrowserFetcher creates a new browser-based fetcher
@@ -28,6 +35,11 @@ func NewBrowserFetcher(headless bool) (*BrowserFetcher, error) {
 
 // NewBrowserFetcherWithUserAgent creates a new browser-based fetcher with custom user agent
 func NewBrowserFetcherWithUserAgent(headless bool, userAgent string) (*BrowserFetcher, error) {
+	return NewBrowserFetcherWithAntiBot(headless, userAgent, AntiBotConfig{})
+}
+
+// NewBrowserFetcherWithAntiBot creates a new browser-based fetcher with anti-bot configuration
+func NewBrowserFetcherWithAntiBot(headless bool, userAgent string, antiBot AntiBotConfig) (*BrowserFetcher, error) {
 	if userAgent == "" {
 		userAgent = DefaultUserAgent
 	}
@@ -40,6 +52,22 @@ func NewBrowserFetcherWithUserAgent(headless bool, userAgent string) (*BrowserFe
 		chromedp.UserAgent(userAgent),
 	)
 
+	// Anti-bot: Hide automation indicators
+	if antiBot.HideWebdriver {
+		opts = append(opts,
+			chromedp.Flag("disable-blink-features", "AutomationControlled"),
+		)
+	}
+
+	// Anti-bot: Random viewport
+	var viewport *Viewport
+	if antiBot.RandomViewport {
+		viewport = GetRandomViewport()
+		opts = append(opts,
+			chromedp.WindowSize(viewport.Width, viewport.Height),
+		)
+	}
+
 	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), opts...)
 	browserCtx, cancelFunc := chromedp.NewContext(allocCtx)
 
@@ -49,6 +77,24 @@ func NewBrowserFetcherWithUserAgent(headless bool, userAgent string) (*BrowserFe
 		return nil, fmt.Errorf("failed to start browser: %w", err)
 	}
 
+	// Anti-bot: Set timezone if configured
+	if antiBot.MatchTimezone && antiBot.Timezone != "" {
+		if err := chromedp.Run(browserCtx,
+			chromedp.ActionFunc(func(ctx context.Context) error {
+				return emulation.SetTimezoneOverride(antiBot.Timezone).Do(ctx)
+			}),
+		); err != nil {
+			// Log but don't fail - timezone override is non-critical
+			fmt.Printf("Warning: failed to set timezone override: %v\n", err)
+		}
+	}
+
+	// Set up user agent rotation if enabled
+	var userAgentPool []string
+	if antiBot.RotateUserAgent {
+		userAgentPool = GetChromeUserAgents()
+	}
+
 	return &BrowserFetcher{
 		allocCtx:    allocCtx,
 		allocCancel: allocCancel,
@@ -56,7 +102,24 @@ func NewBrowserFetcherWithUserAgent(headless bool, userAgent string) (*BrowserFe
 		cancelFunc:  cancelFunc,
 		headless:    headless,
 		userAgent:   userAgent,
+		antiBot:     antiBot,
+		userAgents:  userAgentPool,
+		uaIndex:     0,
 	}, nil
+}
+
+// GetNextUserAgent returns the next user agent in rotation (thread-safe)
+func (f *BrowserFetcher) GetNextUserAgent() string {
+	if len(f.userAgents) == 0 {
+		return f.userAgent
+	}
+
+	f.uaMu.Lock()
+	defer f.uaMu.Unlock()
+
+	ua := f.userAgents[f.uaIndex]
+	f.uaIndex = (f.uaIndex + 1) % len(f.userAgents)
+	return ua
 }
 
 // Fetch retrieves a URL using the browser
@@ -88,14 +151,38 @@ func (f *BrowserFetcher) Fetch(rawURL string, userAgent string) (*FetchResult, e
 	// The userAgent parameter is ignored here as it's configured when creating the fetcher
 	_ = userAgent
 
-	actions := []chromedp.Action{
+	// Inject anti-bot scripts before navigation
+	scripts := BuildInjectionScripts(f.antiBot)
+
+	var actions []chromedp.Action
+
+	// First, inject scripts to run on new documents
+	if len(scripts) > 0 {
+		actions = append(actions, chromedp.ActionFunc(func(ctx context.Context) error {
+			for _, script := range scripts {
+				_, err := page.AddScriptToEvaluateOnNewDocument(script).Do(ctx)
+				if err != nil {
+					return fmt.Errorf("failed to inject anti-bot script: %w", err)
+				}
+			}
+			return nil
+		}))
+	}
+
+	// Add random action delay if enabled
+	if f.antiBot.RandomActionDelays {
+		actions = append(actions, chromedp.Sleep(RandomActionDelay()))
+	}
+
+	// Core navigation actions
+	actions = append(actions,
 		network.Enable(),
 		chromedp.Navigate(rawURL),
 		chromedp.WaitReady("body", chromedp.ByQuery),
 		chromedp.Sleep(500*time.Millisecond), // Small delay for dynamic content
 		chromedp.Location(&finalURL),
 		chromedp.OuterHTML("html", &html, chromedp.ByQuery),
-	}
+	)
 
 	err := chromedp.Run(tabCtx, actions...)
 	if err != nil {

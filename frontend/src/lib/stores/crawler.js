@@ -49,6 +49,21 @@ function createConfigStore() {
         fetchMode: 'http',
         headless: true,
         waitForLogin: false,
+        // Anti-bot settings (visible only in non-headless browser mode)
+        hideWebdriver: false,
+        spoofPlugins: false,
+        spoofLanguages: false,
+        spoofWebGL: false,
+        addCanvasNoise: false,
+        naturalMouseMovement: false,
+        randomTypingDelays: false,
+        naturalScrolling: false,
+        randomActionDelays: false,
+        randomClickOffset: false,
+        rotateUserAgent: false,
+        randomViewport: false,
+        matchTimezone: false,
+        timezone: '',
     });
 
     return {
@@ -71,6 +86,21 @@ function createConfigStore() {
             fetchMode: 'http',
             headless: true,
             waitForLogin: false,
+            // Anti-bot settings
+            hideWebdriver: false,
+            spoofPlugins: false,
+            spoofLanguages: false,
+            spoofWebGL: false,
+            addCanvasNoise: false,
+            naturalMouseMovement: false,
+            randomTypingDelays: false,
+            naturalScrolling: false,
+            randomActionDelays: false,
+            randomClickOffset: false,
+            rotateUserAgent: false,
+            randomViewport: false,
+            matchTimezone: false,
+            timezone: '',
         }),
     };
 }

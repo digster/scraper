@@ -54,6 +54,21 @@ type CrawlConfig struct {
 	FetchMode          string `json:"fetchMode"`
 	Headless           bool   `json:"headless"`
 	WaitForLogin       bool   `json:"waitForLogin"`
+	// Anti-bot settings
+	HideWebdriver        bool   `json:"hideWebdriver"`
+	SpoofPlugins         bool   `json:"spoofPlugins"`
+	SpoofLanguages       bool   `json:"spoofLanguages"`
+	SpoofWebGL           bool   `json:"spoofWebGL"`
+	AddCanvasNoise       bool   `json:"addCanvasNoise"`
+	NaturalMouseMovement bool   `json:"naturalMouseMovement"`
+	RandomTypingDelays   bool   `json:"randomTypingDelays"`
+	NaturalScrolling     bool   `json:"naturalScrolling"`
+	RandomActionDelays   bool   `json:"randomActionDelays"`
+	RandomClickOffset    bool   `json:"randomClickOffset"`
+	RotateUserAgent      bool   `json:"rotateUserAgent"`
+	RandomViewport       bool   `json:"randomViewport"`
+	MatchTimezone        bool   `json:"matchTimezone"`
+	Timezone             string `json:"timezone"`
 }
 
 // StartCrawl starts the crawler with the given configuration
@@ -77,6 +92,24 @@ func (a *App) StartCrawl(cfg CrawlConfig) error {
 		fetchMode = crawler.FetchModeBrowser
 	}
 
+	// Build anti-bot config
+	antiBotConfig := crawler.AntiBotConfig{
+		HideWebdriver:        cfg.HideWebdriver,
+		SpoofPlugins:         cfg.SpoofPlugins,
+		SpoofLanguages:       cfg.SpoofLanguages,
+		SpoofWebGL:           cfg.SpoofWebGL,
+		AddCanvasNoise:       cfg.AddCanvasNoise,
+		NaturalMouseMovement: cfg.NaturalMouseMovement,
+		RandomTypingDelays:   cfg.RandomTypingDelays,
+		NaturalScrolling:     cfg.NaturalScrolling,
+		RandomActionDelays:   cfg.RandomActionDelays,
+		RandomClickOffset:    cfg.RandomClickOffset,
+		RotateUserAgent:      cfg.RotateUserAgent,
+		RandomViewport:       cfg.RandomViewport,
+		MatchTimezone:        cfg.MatchTimezone,
+		Timezone:             cfg.Timezone,
+	}
+
 	// Build config
 	config := crawler.Config{
 		URL:                cfg.URL,
@@ -95,6 +128,7 @@ func (a *App) StartCrawl(cfg CrawlConfig) error {
 		FetchMode:          fetchMode,
 		Headless:           cfg.Headless,
 		WaitForLogin:       cfg.WaitForLogin,
+		AntiBot:            antiBotConfig,
 	}
 
 	// Parse exclude extensions

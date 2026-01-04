@@ -118,6 +118,20 @@ Simply run the built application or use `wails dev` for development. All options
 - `-fetch-mode`: Fetch mode - 'http' for standard HTTP client, 'browser' for real Chrome browser (default: http)
 - `-headless`: Run browser in headless mode when using browser fetch mode (default: true)
 - `-wait-login`: Wait for manual login before crawling; only applies when using browser mode with headless=false (default: false)
+- `-hide-webdriver`: Hide navigator.webdriver flag (anti-bot)
+- `-spoof-plugins`: Inject realistic browser plugins (anti-bot)
+- `-spoof-languages`: Set realistic navigator.languages (anti-bot)
+- `-spoof-webgl`: Override WebGL vendor/renderer (anti-bot)
+- `-canvas-noise`: Add noise to canvas fingerprint (anti-bot)
+- `-natural-mouse`: Use Bezier curve mouse movements (anti-bot)
+- `-typing-delays`: Add random typing delays (anti-bot)
+- `-natural-scroll`: Use momentum-based scrolling (anti-bot)
+- `-action-delays`: Add jittered action delays (anti-bot)
+- `-click-offset`: Randomize click positions (anti-bot)
+- `-rotate-ua`: Rotate through user agents (anti-bot)
+- `-random-viewport`: Use random viewport sizes (anti-bot)
+- `-match-timezone`: Enable timezone override (anti-bot)
+- `-timezone`: Timezone to use, e.g., America/New_York (anti-bot)
 
 ## How It Works
 
@@ -298,6 +312,51 @@ When crawling sites that require authentication, you can use the "Wait for Login
 When using browser mode with headless disabled, a "Wait for Login" checkbox will appear. Enable it, then start the crawl. A modal dialog will appear prompting you to complete login in the browser window. Click "Login Complete - Start Crawling" when ready.
 
 **Note:** Session cookies are preserved in the browser context, so all subsequent page fetches during the crawl will use your authenticated session.
+
+### Anti-Bot Bypass (Browser Mode Only)
+
+When using browser mode with a visible window (headless=false), additional anti-bot bypass options are available to help evade detection by anti-bot systems.
+
+#### Browser Fingerprint Options
+- `--hide-webdriver`: Removes the `navigator.webdriver` flag that identifies automated browsers
+- `--spoof-plugins`: Injects realistic browser plugins to match a normal Chrome profile
+- `--spoof-languages`: Sets `navigator.languages` to common browser values (en-US, en)
+- `--spoof-webgl`: Overrides WebGL vendor/renderer strings to avoid GPU fingerprinting
+- `--canvas-noise`: Adds subtle noise to canvas fingerprinting attempts
+
+#### Human Behavior Simulation
+- `--natural-mouse`: Moves mouse with natural Bezier curves instead of teleporting
+- `--typing-delays`: Types with human-like variable delays between keystrokes
+- `--natural-scroll`: Scrolls gradually with momentum simulation (ease-out effect)
+- `--action-delays`: Adds random delays (100-500ms) between page interactions
+- `--click-offset`: Clicks with small random offset from exact element center
+
+#### Browser Properties
+- `--rotate-ua`: Cycles through realistic Chrome user agent strings
+- `--random-viewport`: Uses common screen resolutions (1920x1080, 1366x768, etc.) randomly
+- `--match-timezone`: Enables browser timezone override
+- `--timezone <tz>`: Explicit timezone to use (e.g., `America/New_York`, `Europe/London`)
+
+**CLI Example with anti-bot options:**
+```bash
+./scraper -url https://example.com \
+  -fetch-mode browser \
+  -headless=false \
+  -hide-webdriver \
+  -spoof-plugins \
+  -spoof-webgl \
+  -natural-mouse \
+  -action-delays \
+  -rotate-ua
+```
+
+**GUI Usage:**
+When browser mode is selected with headless disabled, an "Anti-Bot Bypass Options" section appears in the configuration panel. This section is organized into three categories:
+- **Browser Fingerprint**: Options to modify browser fingerprint characteristics
+- **Human Behavior**: Options to simulate human-like interactions
+- **Browser Properties**: Options to randomize browser properties
+
+Each option can be individually enabled or disabled to customize your stealth configuration.
 
 ## Notes
 

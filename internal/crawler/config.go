@@ -23,6 +23,30 @@ const (
 	FetchModeBrowser FetchMode = "browser"
 )
 
+// AntiBotConfig holds anti-bot bypass configuration options
+// These options are only effective when using browser mode with headless disabled
+type AntiBotConfig struct {
+	// Browser Fingerprint Modifications
+	HideWebdriver  bool `json:"hideWebdriver"`  // Removes navigator.webdriver flag
+	SpoofPlugins   bool `json:"spoofPlugins"`   // Injects realistic navigator.plugins
+	SpoofLanguages bool `json:"spoofLanguages"` // Sets realistic navigator.languages
+	SpoofWebGL     bool `json:"spoofWebGL"`     // Overrides WebGL vendor/renderer
+	AddCanvasNoise bool `json:"addCanvasNoise"` // Adds noise to canvas fingerprint
+
+	// Human Behavior Simulation
+	NaturalMouseMovement bool `json:"naturalMouseMovement"` // Bezier curve mouse movements
+	RandomTypingDelays   bool `json:"randomTypingDelays"`   // Variable keystroke timing
+	NaturalScrolling     bool `json:"naturalScrolling"`     // Gradual scroll with momentum
+	RandomActionDelays   bool `json:"randomActionDelays"`   // Jittered delays between actions
+	RandomClickOffset    bool `json:"randomClickOffset"`    // Small offset from element center
+
+	// Browser Properties
+	RotateUserAgent bool   `json:"rotateUserAgent"` // Cycle through UA strings
+	RandomViewport  bool   `json:"randomViewport"`  // Use common screen resolutions
+	MatchTimezone   bool   `json:"matchTimezone"`   // Enable timezone override
+	Timezone        string `json:"timezone"`        // Explicit timezone (e.g., America/New_York)
+}
+
 // Config holds all configuration options for the crawler
 type Config struct {
 	URL                string
@@ -44,6 +68,7 @@ type Config struct {
 	FetchMode          FetchMode
 	Headless           bool
 	WaitForLogin       bool
+	AntiBot            AntiBotConfig
 }
 
 // ValidateConfig checks that configuration values are valid

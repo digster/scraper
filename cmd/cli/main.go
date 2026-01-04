@@ -37,6 +37,22 @@ func main() {
 	flag.StringVar(&fetchMode, "fetch-mode", "http", "Fetch mode: 'http' for standard HTTP client, 'browser' for real browser via chromedp")
 	flag.BoolVar(&config.Headless, "headless", true, "Run browser in headless mode (only applies when fetch-mode=browser)")
 	flag.BoolVar(&config.WaitForLogin, "wait-login", false, "Wait for manual login before crawling (only applies when fetch-mode=browser and headless=false)")
+
+	// Anti-bot bypass flags (only apply when fetch-mode=browser and headless=false)
+	flag.BoolVar(&config.AntiBot.HideWebdriver, "hide-webdriver", false, "Hide navigator.webdriver flag")
+	flag.BoolVar(&config.AntiBot.SpoofPlugins, "spoof-plugins", false, "Inject realistic browser plugins")
+	flag.BoolVar(&config.AntiBot.SpoofLanguages, "spoof-languages", false, "Set realistic navigator.languages")
+	flag.BoolVar(&config.AntiBot.SpoofWebGL, "spoof-webgl", false, "Override WebGL vendor/renderer")
+	flag.BoolVar(&config.AntiBot.AddCanvasNoise, "canvas-noise", false, "Add noise to canvas fingerprint")
+	flag.BoolVar(&config.AntiBot.NaturalMouseMovement, "natural-mouse", false, "Use Bezier curve mouse movements")
+	flag.BoolVar(&config.AntiBot.RandomTypingDelays, "typing-delays", false, "Add random typing delays")
+	flag.BoolVar(&config.AntiBot.NaturalScrolling, "natural-scroll", false, "Use momentum-based scrolling")
+	flag.BoolVar(&config.AntiBot.RandomActionDelays, "action-delays", false, "Add jittered action delays")
+	flag.BoolVar(&config.AntiBot.RandomClickOffset, "click-offset", false, "Randomize click positions")
+	flag.BoolVar(&config.AntiBot.RotateUserAgent, "rotate-ua", false, "Rotate through user agents")
+	flag.BoolVar(&config.AntiBot.RandomViewport, "random-viewport", false, "Use random viewport sizes")
+	flag.BoolVar(&config.AntiBot.MatchTimezone, "match-timezone", false, "Enable timezone override")
+	flag.StringVar(&config.AntiBot.Timezone, "timezone", "", "Timezone to use (e.g., America/New_York)")
 	flag.Parse()
 
 	// Set fetch mode

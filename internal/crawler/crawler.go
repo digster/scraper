@@ -131,7 +131,7 @@ func NewCrawlerWithEmitter(config Config, ctx context.Context, emitter EventEmit
 	switch config.FetchMode {
 	case FetchModeBrowser:
 		logger.Info("Using browser-based fetching (headless=%v)", config.Headless)
-		fetcher, err = NewBrowserFetcherWithUserAgent(config.Headless, userAgent)
+		fetcher, err = NewBrowserFetcherWithAntiBot(config.Headless, userAgent, config.AntiBot)
 		if err != nil {
 			cancel()
 			return nil, fmt.Errorf("failed to create browser fetcher: %w", err)

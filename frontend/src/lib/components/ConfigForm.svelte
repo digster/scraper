@@ -31,7 +31,22 @@
     excludeExtensions: "Skip downloading files with these extensions (comma-separated). Useful for excluding assets like images or scripts.",
     linkSelectors: "CSS selectors to filter which links to follow. Default follows all links with href attribute.",
     userAgent: "HTTP User-Agent header sent with requests. Some sites block non-browser user agents.",
-    stateFile: "JSON file storing crawl progress. Allows resuming interrupted crawls from where they left off."
+    stateFile: "JSON file storing crawl progress. Allows resuming interrupted crawls from where they left off.",
+    // Anti-bot tooltips
+    hideWebdriver: "Removes navigator.webdriver flag that identifies browser automation.",
+    spoofPlugins: "Injects realistic browser plugins to match a normal Chrome profile.",
+    spoofLanguages: "Sets navigator.languages to common browser values (en-US, en).",
+    spoofWebGL: "Overrides WebGL vendor/renderer strings to avoid GPU fingerprinting.",
+    addCanvasNoise: "Adds subtle noise to canvas fingerprinting attempts.",
+    naturalMouseMovement: "Moves mouse with natural Bezier curves instead of teleporting.",
+    randomTypingDelays: "Types with human-like variable delays between keystrokes.",
+    naturalScrolling: "Scrolls gradually with momentum simulation (ease-out effect).",
+    randomActionDelays: "Adds random delays (100-500ms) between page interactions.",
+    randomClickOffset: "Clicks with small random offset from exact element center.",
+    rotateUserAgent: "Cycles through realistic Chrome user agent strings.",
+    randomViewport: "Uses common screen resolutions (1920x1080, 1366x768, etc.) randomly.",
+    matchTimezone: "Enables browser timezone override.",
+    timezone: "Timezone to use (e.g., America/New_York, Europe/London)."
   };
 
   async function browseDirectory() {
@@ -175,6 +190,110 @@
       {/if}
     </div>
   </div>
+
+  {#if config.fetchMode === 'browser' && !config.headless}
+    <div class="antibot-section">
+      <h3>Anti-Bot Bypass Options</h3>
+
+      <div class="antibot-group">
+        <h4>Browser Fingerprint</h4>
+        <div class="antibot-checkbox-group">
+          <label>
+            <input type="checkbox" bind:checked={config.hideWebdriver} disabled={status !== 'stopped'} />
+            Hide Webdriver
+            <span class="info-icon" title={tooltips.hideWebdriver}>i</span>
+          </label>
+          <label>
+            <input type="checkbox" bind:checked={config.spoofPlugins} disabled={status !== 'stopped'} />
+            Spoof Plugins
+            <span class="info-icon" title={tooltips.spoofPlugins}>i</span>
+          </label>
+          <label>
+            <input type="checkbox" bind:checked={config.spoofLanguages} disabled={status !== 'stopped'} />
+            Spoof Languages
+            <span class="info-icon" title={tooltips.spoofLanguages}>i</span>
+          </label>
+          <label>
+            <input type="checkbox" bind:checked={config.spoofWebGL} disabled={status !== 'stopped'} />
+            Spoof WebGL
+            <span class="info-icon" title={tooltips.spoofWebGL}>i</span>
+          </label>
+          <label>
+            <input type="checkbox" bind:checked={config.addCanvasNoise} disabled={status !== 'stopped'} />
+            Canvas Noise
+            <span class="info-icon" title={tooltips.addCanvasNoise}>i</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="antibot-group">
+        <h4>Human Behavior</h4>
+        <div class="antibot-checkbox-group">
+          <label>
+            <input type="checkbox" bind:checked={config.naturalMouseMovement} disabled={status !== 'stopped'} />
+            Natural Mouse
+            <span class="info-icon" title={tooltips.naturalMouseMovement}>i</span>
+          </label>
+          <label>
+            <input type="checkbox" bind:checked={config.randomTypingDelays} disabled={status !== 'stopped'} />
+            Typing Delays
+            <span class="info-icon" title={tooltips.randomTypingDelays}>i</span>
+          </label>
+          <label>
+            <input type="checkbox" bind:checked={config.naturalScrolling} disabled={status !== 'stopped'} />
+            Natural Scroll
+            <span class="info-icon" title={tooltips.naturalScrolling}>i</span>
+          </label>
+          <label>
+            <input type="checkbox" bind:checked={config.randomActionDelays} disabled={status !== 'stopped'} />
+            Action Delays
+            <span class="info-icon" title={tooltips.randomActionDelays}>i</span>
+          </label>
+          <label>
+            <input type="checkbox" bind:checked={config.randomClickOffset} disabled={status !== 'stopped'} />
+            Click Offset
+            <span class="info-icon" title={tooltips.randomClickOffset}>i</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="antibot-group">
+        <h4>Browser Properties</h4>
+        <div class="antibot-checkbox-group">
+          <label>
+            <input type="checkbox" bind:checked={config.rotateUserAgent} disabled={status !== 'stopped'} />
+            Rotate User Agent
+            <span class="info-icon" title={tooltips.rotateUserAgent}>i</span>
+          </label>
+          <label>
+            <input type="checkbox" bind:checked={config.randomViewport} disabled={status !== 'stopped'} />
+            Random Viewport
+            <span class="info-icon" title={tooltips.randomViewport}>i</span>
+          </label>
+          <label>
+            <input type="checkbox" bind:checked={config.matchTimezone} disabled={status !== 'stopped'} />
+            Override Timezone
+            <span class="info-icon" title={tooltips.matchTimezone}>i</span>
+          </label>
+        </div>
+        {#if config.matchTimezone}
+          <div class="form-group timezone-input">
+            <label for="timezone">
+              Timezone
+              <span class="info-icon" title={tooltips.timezone}>i</span>
+            </label>
+            <input
+              type="text"
+              id="timezone"
+              bind:value={config.timezone}
+              placeholder="e.g., America/New_York"
+              disabled={status !== 'stopped'}
+            />
+          </div>
+        {/if}
+      </div>
+    </div>
+  {/if}
 
   <div class="checkbox-group">
     <label>
@@ -510,5 +629,73 @@
     margin-left: 2px;
     vertical-align: middle;
     transform: none;
+  }
+
+  /* Anti-bot section styles */
+  .antibot-section {
+    margin: 16px 0;
+    padding: 16px;
+    border: 1px solid #2a3f5f;
+    border-radius: 8px;
+    background: rgba(74, 158, 255, 0.05);
+  }
+
+  .antibot-section h3 {
+    font-size: 1rem;
+    margin: 0 0 12px 0;
+    color: #4a9eff;
+    font-weight: 500;
+  }
+
+  .antibot-group {
+    margin-bottom: 16px;
+  }
+
+  .antibot-group:last-child {
+    margin-bottom: 0;
+  }
+
+  .antibot-group h4 {
+    font-size: 0.8rem;
+    color: #888;
+    margin: 0 0 8px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+  }
+
+  .antibot-checkbox-group {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+  }
+
+  .antibot-checkbox-group label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    color: #ccc;
+    font-size: 0.85rem;
+  }
+
+  .antibot-checkbox-group input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+  }
+
+  .antibot-checkbox-group .info-icon {
+    margin-left: 2px;
+    vertical-align: middle;
+    transform: none;
+  }
+
+  .timezone-input {
+    margin-top: 12px;
+  }
+
+  .timezone-input label {
+    font-size: 0.85rem;
   }
 </style>
