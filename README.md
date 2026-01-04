@@ -358,6 +358,14 @@ When browser mode is selected with headless disabled, an "Anti-Bot Bypass Option
 
 Each option can be individually enabled or disabled to customize your stealth configuration.
 
+**Sources & References:**
+- [ZenRows: Bypass Bot Detection](https://www.zenrows.com/blog/bypass-bot-detection) - Overview of anti-bot bypass methods
+- [Puppeteer Stealth Plugin (npm)](https://www.npmjs.com/package/puppeteer-extra-plugin-stealth) - Stealth techniques for browser automation
+- [ZenRows: Ghost Cursor](https://www.zenrows.com/blog/ghost-cursor) - Human-like mouse movement patterns
+- [ZenRows: WebGL Fingerprinting](https://www.zenrows.com/blog/webgl-fingerprinting) - WebGL fingerprint evasion techniques
+- [Intoli: Making Chrome Headless Undetectable](https://intoli.com/blog/making-chrome-headless-undetectable/) - Hiding automation indicators
+- [chromedp Documentation](https://pkg.go.dev/github.com/chromedp/chromedp) - Go browser automation library
+
 ## Notes
 
 - The scraper uses hierarchical discovery - only URLs found through the crawling tree are processed
