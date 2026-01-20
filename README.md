@@ -51,6 +51,15 @@ The scraper also provides an HTTP API for programmatic control and integration:
 - **Authentication**: Optional API key authentication
 - **CORS Support**: Configurable CORS for browser clients
 
+## MCP Server Mode
+
+The scraper can run as an MCP (Model Context Protocol) server, allowing LLM agents like Claude Code to use it as a tool:
+
+- **9 Tools**: Start, list, get, stop, pause, resume, metrics, confirm-login, wait
+- **stdio Transport**: Works with Claude Code and other MCP clients
+- **Async Jobs**: Start crawls that run in the background
+- **Real-time Metrics**: Poll job progress while running
+
 ## Installation
 
 ### CLI
@@ -87,6 +96,12 @@ The built application will be in `build/bin/`.
 
 ```bash
 go build -o scraper-api cmd/api/main.go
+```
+
+### MCP Server
+
+```bash
+go build -o scraper-mcp cmd/mcp/main.go
 ```
 
 ## Usage
@@ -177,6 +192,60 @@ curl -X DELETE http://localhost:8080/api/v1/crawl/{jobId}
 | `--write-timeout` | `60` | Write timeout (seconds) |
 
 Environment variables: `API_HOST`, `API_PORT`, `API_MAX_CONCURRENT_JOBS`, `API_KEY`, `API_CORS_ORIGINS`
+
+### MCP Server
+
+The MCP server allows LLM agents to use the scraper as a tool. Configure it in Claude Code's MCP settings:
+
+**Setup (~/.claude/mcp.json):**
+```json
+{
+  "mcpServers": {
+    "scraper": {
+      "command": "/path/to/scraper-mcp",
+      "args": ["--max-jobs", "5"]
+    }
+  }
+}
+```
+
+**MCP Server Flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--max-jobs` | `5` | Maximum concurrent crawl jobs |
+
+**Available Tools:**
+
+| Tool | Description |
+|------|-------------|
+| `scraper_start` | Start a new crawl job |
+| `scraper_list` | List all jobs |
+| `scraper_get` | Get job details and metrics |
+| `scraper_stop` | Stop a running job |
+| `scraper_pause` | Pause a running job |
+| `scraper_resume` | Resume a paused job |
+| `scraper_metrics` | Get real-time metrics |
+| `scraper_confirm_login` | Confirm browser login |
+| `scraper_wait` | Wait for job completion |
+
+**Example Usage (in Claude Code):**
+```
+User: Crawl the docs at https://docs.example.com with depth 3
+
+Claude: I'll start a crawl job for you.
+[Uses scraper_start with url="https://docs.example.com", maxDepth=3]
+
+The crawl has started with job ID "a1b2c3d4". I'll wait for it to complete.
+[Uses scraper_wait with jobId="a1b2c3d4"]
+
+Done! The crawl completed successfully:
+- URLs processed: 45
+- URLs saved: 38
+- Output directory: /path/to/scraped_content
+```
+
+See `docs/skill.md` for detailed tool documentation and workflows.
 
 ### GUI
 

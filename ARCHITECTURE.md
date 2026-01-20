@@ -1,18 +1,18 @@
 # Architecture
 
-A web scraper application built in Go with three interfaces: CLI for command-line usage, a desktop GUI powered by Wails with a Svelte frontend, and an HTTP API for programmatic control.
+A web scraper application built in Go with four interfaces: CLI for command-line usage, a desktop GUI powered by Wails with a Svelte frontend, an HTTP API for programmatic control, and an MCP server for LLM agent integration.
 
 ## High-Level Overview
 
 ```
-┌────────────────────────────────────────────────────────────────────────────────────┐
-│                                   Entry Points                                      │
-├─────────────────────────┬─────────────────────────────┬────────────────────────────┤
-│   CLI (cmd/cli/main.go) │   GUI (main.go + Wails)     │   API (cmd/api/main.go)    │
-│   - Flag parsing        │   - Svelte frontend         │   - HTTP server            │
-│   - Signal handling     │   - Event-driven updates    │   - RESTful endpoints      │
-│                         │                             │   - SSE event streaming    │
-└─────────────────────────┴─────────────────────────────┴────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                              Entry Points                                                   │
+├─────────────────────────┬─────────────────────────────┬────────────────────────────┬──────────────────────┤
+│   CLI (cmd/cli/main.go) │   GUI (main.go + Wails)     │   API (cmd/api/main.go)    │ MCP (cmd/mcp/main.go)│
+│   - Flag parsing        │   - Svelte frontend         │   - HTTP server            │ - stdio transport    │
+│   - Signal handling     │   - Event-driven updates    │   - RESTful endpoints      │ - 9 MCP tools        │
+│                         │                             │   - SSE event streaming    │ - LLM integration    │
+└─────────────────────────┴─────────────────────────────┴────────────────────────────┴──────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -62,7 +62,8 @@ scraper/
 ├── main.go                    # GUI entry point (Wails)
 ├── cmd/
 │   ├── cli/main.go            # CLI entry point
-│   └── api/main.go            # API server entry point
+│   ├── api/main.go            # API server entry point
+│   └── mcp/main.go            # MCP server entry point
 ├── pkg/app/app.go             # Wails app bridge (Go ↔ Frontend)
 ├── internal/
 │   ├── crawler/               # Core crawler package
@@ -76,16 +77,21 @@ scraper/
 │   │   ├── storage.go         # Content extraction and file saving
 │   │   ├── filter.go          # URL and content-type filtering
 │   │   └── index.go           # Post-crawl HTML report generator
-│   └── api/                   # HTTP API package
-│       ├── server.go          # HTTP server lifecycle
-│       ├── routes.go          # Chi router configuration
-│       ├── handlers.go        # REST endpoint handlers
-│       ├── jobs.go            # Multi-job management
-│       ├── emitter.go         # SSE event broadcaster
-│       ├── sse.go             # Server-Sent Events streaming
-│       ├── middleware.go      # Auth, CORS, logging middleware
-│       ├── types.go           # Request/response types
-│       └── config.go          # Server configuration
+│   ├── api/                   # HTTP API package
+│   │   ├── server.go          # HTTP server lifecycle
+│   │   ├── routes.go          # Chi router configuration
+│   │   ├── handlers.go        # REST endpoint handlers
+│   │   ├── jobs.go            # Multi-job management
+│   │   ├── emitter.go         # SSE event broadcaster
+│   │   ├── sse.go             # Server-Sent Events streaming
+│   │   ├── middleware.go      # Auth, CORS, logging middleware
+│   │   ├── types.go           # Request/response types
+│   │   └── config.go          # Server configuration
+│   └── mcp/                   # MCP server package
+│       ├── server.go          # MCP server setup and tool registration
+│       ├── tools.go           # Tool handler implementations
+│       ├── types.go           # MCP input/output types
+│       └── server_test.go     # Unit tests
 ├── frontend/                  # Svelte frontend
 │   ├── src/
 │   │   ├── App.svelte         # Main container
@@ -96,6 +102,8 @@ scraper/
 │   │       ├── ControlButtons.svelte   # Start/Pause/Stop controls
 │   │       └── LoginModal.svelte       # Manual login flow UI
 │   └── wailsjs/               # Auto-generated Wails bindings
+├── docs/
+│   └── skill.md               # Claude Code skill documentation
 └── backup/                    # Default output directory
 ```
 
@@ -305,6 +313,70 @@ Crawler                   SSEEmitter                  HTTP Clients
    │                          ├───────────────────────────►│
 ```
 
+## MCP Server (`internal/mcp/`)
+
+The MCP (Model Context Protocol) server exposes the scraper as tools for LLM agents:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         MCP Client (Claude Code)                      │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │ stdio (JSON-RPC)
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    MCP Server (server.go)                            │
+│   - Tool registration (9 tools)                                      │
+│   - Request routing to handlers                                      │
+│   - JSON schema generation                                           │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Tool Handlers (tools.go)                          │
+│   handleStart, handleList, handleGet, handleStop, handlePause,       │
+│   handleResume, handleMetrics, handleConfirmLogin, handleWait        │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    JobManager (reused from api/jobs.go)              │
+│   - Same job lifecycle management as HTTP API                        │
+│   - Config translation, concurrent job limits                        │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    crawler.Crawler (internal/crawler)                │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Design Decisions
+
+1. **Direct JobManager Reuse**: The MCP server uses `api.JobManager` directly rather than making HTTP calls. This:
+   - Avoids network overhead
+   - Reuses all validation and config translation logic
+   - Shares the same job lifecycle semantics
+
+2. **stdio Transport**: MCP uses JSON-RPC over stdin/stdout, which is the standard transport for Claude Code integration.
+
+3. **Async Job Model**: `scraper_start` returns immediately with a job ID. Clients poll with `scraper_metrics` or block with `scraper_wait`.
+
+4. **Wait Polling**: The `scraper_wait` tool implements a polling loop (default 2s interval) that checks for terminal states (completed, stopped, error).
+
+### Available Tools
+
+| Tool | Purpose | Maps to |
+|------|---------|---------|
+| `scraper_start` | Start crawl job | `JobManager.CreateJob` + `StartJob` |
+| `scraper_list` | List all jobs | `JobManager.ListJobs` |
+| `scraper_get` | Get job details | `JobManager.GetJob` + `ToDetails` |
+| `scraper_stop` | Stop job | `JobManager.StopJob` |
+| `scraper_pause` | Pause job | `JobManager.PauseJob` |
+| `scraper_resume` | Resume job | `JobManager.ResumeJob` |
+| `scraper_metrics` | Get metrics | `CrawlJob.GetMetrics` |
+| `scraper_confirm_login` | Confirm login | `JobManager.ConfirmLogin` |
+| `scraper_wait` | Poll until done | Custom polling loop |
+
 ## Configuration
 
 The `Config` struct (`config.go`) supports:
@@ -362,6 +434,9 @@ go build -o scraper-cli cmd/cli/main.go
 
 # Build API server binary
 go build -o scraper-api cmd/api/main.go
+
+# Build MCP server binary
+go build -o scraper-mcp cmd/mcp/main.go
 ```
 
 ### CLI Examples
@@ -405,6 +480,7 @@ go test -v ./internal/crawler/...
 | `github.com/temoto/robotstxt` | robots.txt parsing |
 | `github.com/go-chi/chi/v5` | HTTP router for API server |
 | `github.com/google/uuid` | Job ID generation |
+| `github.com/mark3labs/mcp-go` | MCP server framework |
 
 ## Design Decisions
 

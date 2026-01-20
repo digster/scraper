@@ -40,3 +40,40 @@ Implemented a complete HTTP API server with:
 - `POST /api/v1/crawl/{jobId}/resume` - Resume
 - `GET /api/v1/crawl/{jobId}/events` - SSE stream
 - `GET /health` - Health check
+
+## 2026-01-20: Implement MCP Server
+
+Create an MCP (Model Context Protocol) server exposing the web scraper as tools for LLM agents, plus a Claude Code skill for common workflows.
+
+### Summary
+Implemented a complete MCP server with:
+- **MCP Package** (`internal/mcp/`): Server setup, tool handlers, and types
+- **Entry Point** (`cmd/mcp/main.go`): CLI with `--max-jobs` flag, signal handling
+- **9 MCP Tools**: scraper_start, scraper_list, scraper_get, scraper_stop, scraper_pause, scraper_resume, scraper_metrics, scraper_confirm_login, scraper_wait
+- **Skill Documentation** (`docs/skill.md`): Tool descriptions, workflows, best practices
+- **Tests** (`internal/mcp/server_test.go`): 15 tests covering tool handlers
+- **Documentation**: Updated README.md and ARCHITECTURE.md
+
+### Architecture Decision
+Built the MCP server by directly using `JobManager` from `internal/api/` rather than HTTP calls. This reuses existing job lifecycle management, config translation, and event handling without network overhead.
+
+### MCP Tools
+| Tool | Description |
+|------|-------------|
+| `scraper_start` | Start a new crawl job |
+| `scraper_list` | List all jobs |
+| `scraper_get` | Get job details and metrics |
+| `scraper_stop` | Stop a running job |
+| `scraper_pause` | Pause a running job |
+| `scraper_resume` | Resume a paused job |
+| `scraper_metrics` | Get real-time metrics |
+| `scraper_confirm_login` | Confirm browser login |
+| `scraper_wait` | Wait for job completion |
+
+### Files Created
+- `cmd/mcp/main.go`
+- `internal/mcp/server.go`
+- `internal/mcp/tools.go`
+- `internal/mcp/types.go`
+- `internal/mcp/server_test.go`
+- `docs/skill.md`
