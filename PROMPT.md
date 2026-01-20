@@ -77,3 +77,21 @@ Built the MCP server by directly using `JobManager` from `internal/api/` rather 
 - `internal/mcp/types.go`
 - `internal/mcp/server_test.go`
 - `docs/skill.md`
+
+## 2026-01-20: Update Skill Documentation for All Interfaces
+
+Update `/Users/ishan/lab/scraper/docs/skill.md` to document MCP, CLI, and HTTP API interfaces (originally only documented MCP).
+
+### Summary
+Expanded skill.md from 170 lines to 564 lines with comprehensive documentation:
+- **Quick Start** section with examples for all three interfaces
+- **MCP Interface**: All 9 tools with parameters, workflows, and examples
+- **CLI Interface**: All 33 flags organized by category (core, filtering, display, fetch mode, anti-bot)
+- **HTTP API Interface**: Server config, all 10 endpoints, request/response types, SSE events
+- **Shared Concepts**: Anti-bot settings, output format, fetch modes, best practices
+
+### Verification
+- All 33 CLI flags from `cmd/cli/main.go` documented
+- All 10 API endpoints from `internal/api/routes.go` documented
+- All 11 SSE event types from `internal/crawler/events.go` documented
+- Copy-paste ready examples for curl commands and CLI usage
