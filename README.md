@@ -41,6 +41,16 @@ The desktop GUI provides a user-friendly interface with:
 - **Live Log Viewer**: Color-coded, scrollable log output
 - **Native Dialogs**: File and directory pickers for output and state files
 
+## API Mode
+
+The scraper also provides an HTTP API for programmatic control and integration:
+
+- **RESTful Endpoints**: Create, monitor, pause/resume, and stop crawl jobs
+- **Real-time Events**: Server-Sent Events (SSE) for live progress updates
+- **Multi-job Support**: Run multiple concurrent crawl jobs
+- **Authentication**: Optional API key authentication
+- **CORS Support**: Configurable CORS for browser clients
+
 ## Installation
 
 ### CLI
@@ -73,7 +83,100 @@ wails build
 
 The built application will be in `build/bin/`.
 
+### API Server
+
+```bash
+go build -o scraper-api cmd/api/main.go
+```
+
 ## Usage
+
+### API Server
+
+Start the API server:
+
+```bash
+# Basic usage
+./scraper-api --port 8080
+
+# With authentication
+./scraper-api --port 8080 --api-key "your-secret-key"
+
+# With CORS for browser clients
+./scraper-api --port 8080 --cors-origins "http://localhost:3000,http://localhost:5173"
+
+# Full configuration
+./scraper-api --host 0.0.0.0 --port 8080 --max-concurrent 10 --api-key "secret"
+```
+
+#### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/health` | Health check |
+| `POST` | `/api/v1/crawl` | Start a new crawl |
+| `GET` | `/api/v1/crawl` | List all jobs |
+| `GET` | `/api/v1/crawl/{jobId}` | Get job details |
+| `DELETE` | `/api/v1/crawl/{jobId}` | Stop and remove job |
+| `POST` | `/api/v1/crawl/{jobId}/pause` | Pause crawl |
+| `POST` | `/api/v1/crawl/{jobId}/resume` | Resume crawl |
+| `POST` | `/api/v1/crawl/{jobId}/confirm-login` | Confirm manual login |
+| `GET` | `/api/v1/crawl/{jobId}/metrics` | Get metrics |
+| `GET` | `/api/v1/crawl/{jobId}/events` | SSE event stream |
+
+#### API Examples
+
+```bash
+# Start a crawl
+curl -X POST http://localhost:8080/api/v1/crawl \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com",
+    "maxDepth": 5,
+    "concurrent": true,
+    "delay": "500ms"
+  }'
+
+# With anti-bot options
+curl -X POST http://localhost:8080/api/v1/crawl \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com",
+    "fetchMode": "browser",
+    "headless": false,
+    "antiBot": {
+      "hideWebdriver": true,
+      "spoofPlugins": true
+    }
+  }'
+
+# Stream events (SSE)
+curl -N http://localhost:8080/api/v1/crawl/{jobId}/events
+
+# Get metrics
+curl http://localhost:8080/api/v1/crawl/{jobId}/metrics
+
+# Pause/Resume
+curl -X POST http://localhost:8080/api/v1/crawl/{jobId}/pause
+curl -X POST http://localhost:8080/api/v1/crawl/{jobId}/resume
+
+# Stop and remove job
+curl -X DELETE http://localhost:8080/api/v1/crawl/{jobId}
+```
+
+#### API Server Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--host` | `0.0.0.0` | Host address to bind |
+| `--port` | `8080` | Port to listen on |
+| `--max-concurrent` | `5` | Maximum concurrent jobs |
+| `--api-key` | *(none)* | API key for authentication |
+| `--cors-origins` | *(none)* | Allowed CORS origins (comma-separated) |
+| `--read-timeout` | `30` | Read timeout (seconds) |
+| `--write-timeout` | `60` | Write timeout (seconds) |
+
+Environment variables: `API_HOST`, `API_PORT`, `API_MAX_CONCURRENT_JOBS`, `API_KEY`, `API_CORS_ORIGINS`
 
 ### GUI
 

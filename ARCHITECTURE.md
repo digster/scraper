@@ -1,17 +1,18 @@
 # Architecture
 
-A web scraper application built in Go with dual interfaces: CLI for command-line usage and a desktop GUI powered by Wails with a Svelte frontend.
+A web scraper application built in Go with three interfaces: CLI for command-line usage, a desktop GUI powered by Wails with a Svelte frontend, and an HTTP API for programmatic control.
 
 ## High-Level Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Entry Points                                 │
-├──────────────────────────────┬──────────────────────────────────────┤
-│     CLI (cmd/cli/main.go)    │       GUI (main.go + Wails)          │
-│     - Flag parsing           │     - Svelte frontend                │
-│     - Signal handling        │     - Event-driven updates           │
-└──────────────────────────────┴──────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────┐
+│                                   Entry Points                                      │
+├─────────────────────────┬─────────────────────────────┬────────────────────────────┤
+│   CLI (cmd/cli/main.go) │   GUI (main.go + Wails)     │   API (cmd/api/main.go)    │
+│   - Flag parsing        │   - Svelte frontend         │   - HTTP server            │
+│   - Signal handling     │   - Event-driven updates    │   - RESTful endpoints      │
+│                         │                             │   - SSE event streaming    │
+└─────────────────────────┴─────────────────────────────┴────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -59,19 +60,32 @@ A web scraper application built in Go with dual interfaces: CLI for command-line
 ```
 scraper/
 ├── main.go                    # GUI entry point (Wails)
-├── cmd/cli/main.go            # CLI entry point
+├── cmd/
+│   ├── cli/main.go            # CLI entry point
+│   └── api/main.go            # API server entry point
 ├── pkg/app/app.go             # Wails app bridge (Go ↔ Frontend)
-├── internal/crawler/          # Core crawler package
-│   ├── crawler.go             # Main orchestrator (779 lines)
-│   ├── config.go              # Configuration structs and validation
-│   ├── state.go               # JSON state persistence for resume
-│   ├── metrics.go             # Thread-safe progress tracking
-│   ├── events.go              # Event emission for GUI/CLI
-│   ├── http_fetcher.go        # Standard HTTP client fetcher
-│   ├── browser.go             # Chromedp browser automation
-│   ├── storage.go             # Content extraction and file saving
-│   ├── filter.go              # URL and content-type filtering
-│   └── index.go               # Post-crawl HTML report generator
+├── internal/
+│   ├── crawler/               # Core crawler package
+│   │   ├── crawler.go         # Main orchestrator
+│   │   ├── config.go          # Configuration structs and validation
+│   │   ├── state.go           # JSON state persistence for resume
+│   │   ├── metrics.go         # Thread-safe progress tracking
+│   │   ├── events.go          # Event emission interface
+│   │   ├── http_fetcher.go    # Standard HTTP client fetcher
+│   │   ├── browser.go         # Chromedp browser automation
+│   │   ├── storage.go         # Content extraction and file saving
+│   │   ├── filter.go          # URL and content-type filtering
+│   │   └── index.go           # Post-crawl HTML report generator
+│   └── api/                   # HTTP API package
+│       ├── server.go          # HTTP server lifecycle
+│       ├── routes.go          # Chi router configuration
+│       ├── handlers.go        # REST endpoint handlers
+│       ├── jobs.go            # Multi-job management
+│       ├── emitter.go         # SSE event broadcaster
+│       ├── sse.go             # Server-Sent Events streaming
+│       ├── middleware.go      # Auth, CORS, logging middleware
+│       ├── types.go           # Request/response types
+│       └── config.go          # Server configuration
 ├── frontend/                  # Svelte frontend
 │   ├── src/
 │   │   ├── App.svelte         # Main container
@@ -213,6 +227,84 @@ The Wails framework bridges Go and Svelte:
 - `ConfirmLogin()` - Signal login completion
 - `BrowseDirectory()` / `BrowseFile()` - Native dialogs
 
+## API Server (`internal/api/`)
+
+The HTTP API provides programmatic control over crawl jobs:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         HTTP Request                                 │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Middleware Stack (middleware.go)                  │
+│   Recovery → Logger → CORS (optional) → APIKey Auth (optional)      │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Chi Router (routes.go)                            │
+│   /health, /api/v1/crawl/*, /api/v1/crawl/{jobId}/*                 │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Handlers (handlers.go, sse.go)                    │
+│   CreateCrawl, ListCrawls, GetCrawl, PauseCrawl, StreamEvents, etc. │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    JobManager (jobs.go)                              │
+│   - Tracks multiple concurrent CrawlJob instances                    │
+│   - Translates API config to crawler.Config                          │
+│   - Manages job lifecycle (create, start, pause, stop, delete)       │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+               ┌────────────────┴────────────────┐
+               ▼                                 ▼
+┌─────────────────────────┐         ┌─────────────────────────┐
+│   crawler.Crawler       │         │   SSEEmitter            │
+│   (internal/crawler)    │ ─────── │   (emitter.go)          │
+│   - Core crawl logic    │ events  │   - Fan-out to clients  │
+└─────────────────────────┘         └─────────────────────────┘
+```
+
+### Key Components
+
+**JobManager (`jobs.go`)**: Manages multiple concurrent crawl jobs. Each job has its own:
+- `CrawlJob` struct tracking ID, status, config, metrics
+- `crawler.Crawler` instance for the actual work
+- `SSEEmitter` for event broadcasting to connected clients
+
+**SSEEmitter (`emitter.go`)**: Implements `crawler.EventEmitter` interface:
+- Channel-based fan-out to multiple SSE clients
+- Non-blocking sends prevent slow clients from blocking the crawler
+- Automatic cleanup on client disconnect
+
+**Handlers (`handlers.go`)**: RESTful endpoint handlers:
+- `POST /api/v1/crawl` - Create and start new job
+- `GET /api/v1/crawl/{jobId}` - Get job details
+- `POST /api/v1/crawl/{jobId}/pause` - Pause running job
+- `GET /api/v1/crawl/{jobId}/events` - SSE event stream
+
+### SSE Event Flow
+
+```
+Crawler                   SSEEmitter                  HTTP Clients
+   │                          │                            │
+   │  EmitProgress(...)       │                            │
+   ├─────────────────────────►│                            │
+   │                          │  broadcast to all          │
+   │                          │  subscribed channels       │
+   │                          ├───────────────────────────►│
+   │                          │                            │
+   │  EmitLog(...)            │                            │
+   ├─────────────────────────►│                            │
+   │                          ├───────────────────────────►│
+```
+
 ## Configuration
 
 The `Config` struct (`config.go`) supports:
@@ -254,6 +346,9 @@ wails dev
 
 # Run CLI directly
 go run cmd/cli/main.go -url https://example.com -depth 2
+
+# Run API server directly
+go run cmd/api/main.go --port 8080
 ```
 
 ### Production Build
@@ -264,6 +359,9 @@ wails build
 
 # Build CLI binary
 go build -o scraper-cli cmd/cli/main.go
+
+# Build API server binary
+go build -o scraper-api cmd/api/main.go
 ```
 
 ### CLI Examples
@@ -305,6 +403,8 @@ go test -v ./internal/crawler/...
 | `github.com/PuerkitoBio/goquery` | HTML parsing and link extraction |
 | `github.com/go-shiori/go-readability` | Article content extraction |
 | `github.com/temoto/robotstxt` | robots.txt parsing |
+| `github.com/go-chi/chi/v5` | HTTP router for API server |
+| `github.com/google/uuid` | Job ID generation |
 
 ## Design Decisions
 
