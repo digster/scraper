@@ -657,6 +657,12 @@ func (c *Crawler) processURL(rawURL string, currentDepth int) {
 		userAgent = DefaultUserAgent
 	}
 
+	// Check if pagination is enabled and we're using browser mode
+	if c.config.Pagination.Enable && c.config.FetchMode == FetchModeBrowser {
+		c.processURLWithPagination(rawURL, currentDepth, userAgent)
+		return
+	}
+
 	result, err := c.fetcher.Fetch(rawURL, userAgent)
 	if err != nil {
 		c.log.Error("Error fetching %s: %v", rawURL, err)
@@ -704,6 +710,74 @@ func (c *Crawler) processURL(rawURL string, currentDepth int) {
 		}()
 		c.extractAndQueueURLs(rawURL, string(body), currentDepth)
 	}()
+}
+
+// processURLWithPagination handles URL processing with click-based pagination
+func (c *Crawler) processURLWithPagination(rawURL string, currentDepth int, userAgent string) {
+	browserFetcher, ok := c.fetcher.(*BrowserFetcher)
+	if !ok {
+		c.log.Error("Pagination enabled but fetcher is not a BrowserFetcher")
+		c.metrics.IncrementErrored()
+		return
+	}
+
+	c.log.Debug("Using pagination for %s (selector: %s)", rawURL, c.config.Pagination.Selector)
+
+	// Page callback processes each paginated page
+	pageCallback := func(result *FetchResult, pageNumber int, virtualURL string) error {
+		// Check if content type should be excluded
+		if c.shouldExcludeByContentType(result.ContentType) {
+			c.log.Debug("Skipping page %d of %s: excluded content type %s", pageNumber, rawURL, result.ContentType)
+			c.metrics.IncrementContentFiltered()
+			return nil
+		}
+
+		body := result.Body
+
+		// Check if page has meaningful content
+		if !c.hasContent(string(body)) {
+			c.log.Debug("Skipping page %d of %s: no meaningful content", pageNumber, rawURL)
+			c.metrics.IncrementContentFiltered()
+			return nil
+		}
+
+		// Save the content using the virtual URL for unique filenames
+		if err := c.saveContent(virtualURL, body); err != nil {
+			c.log.Error("Error saving content for page %d of %s: %v", pageNumber, rawURL, err)
+			c.metrics.IncrementErrored()
+			return nil // Don't stop pagination on save error
+		}
+
+		c.metrics.IncrementSaved(int64(len(body)))
+		c.log.Info("[%d] Saved page %d: %s", c.state.Processed, pageNumber, virtualURL)
+
+		// Extract and queue new URLs at the same depth (pagination doesn't increase depth)
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					c.log.Error("Panic extracting URLs from page %d of %s: %v", pageNumber, rawURL, r)
+				}
+			}()
+			c.extractAndQueueURLs(rawURL, string(body), currentDepth)
+		}()
+
+		return nil
+	}
+
+	// Execute paginated fetch
+	paginationResult, err := browserFetcher.FetchWithPagination(rawURL, userAgent, c.config.Pagination, pageCallback)
+	if err != nil {
+		c.log.Error("Error during pagination for %s: %v", rawURL, err)
+		c.metrics.IncrementErrored()
+		return
+	}
+
+	c.log.Debug("Pagination completed for %s: %d pages fetched, reason: %s",
+		rawURL, paginationResult.TotalPages, paginationResult.ExhaustedReason)
+
+	if paginationResult.LastError != nil {
+		c.log.Warn("Pagination had errors for %s: %v", rawURL, paginationResult.LastError)
+	}
 }
 
 func (c *Crawler) extractAndQueueURLs(baseURL, html string, currentDepth int) {

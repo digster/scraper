@@ -243,3 +243,197 @@ func (f *BrowserFetcher) Close() error {
 	f.allocCancel()
 	return nil
 }
+
+// PageCallback is called for each page fetched during pagination
+// It receives the page content, page number (1-indexed), and a virtual URL with page parameter
+// Return an error to stop pagination early
+type PageCallback func(result *FetchResult, pageNumber int, virtualURL string) error
+
+// PaginatedFetchResult contains the result of a paginated fetch operation
+type PaginatedFetchResult struct {
+	TotalPages       int    // Total number of pages fetched
+	ExhaustedReason  string // Reason pagination stopped (if applicable)
+	LastError        error  // Last error encountered (if any)
+}
+
+// FetchWithPagination fetches a URL and handles click-based pagination
+// It calls the callback for each page of content (including the initial page)
+func (f *BrowserFetcher) FetchWithPagination(rawURL string, userAgent string, config PaginationConfig, callback PageCallback) (*PaginatedFetchResult, error) {
+	result := &PaginatedFetchResult{
+		TotalPages: 0,
+	}
+
+	// Create a persistent tab context for the entire pagination session
+	tabCtx, cancel := chromedp.NewContext(f.browserCtx)
+	defer cancel()
+
+	// Set timeout for the entire pagination operation
+	// Use a longer timeout: base timeout + (waitAfterClick * maxClicks)
+	totalTimeout := HTTPTimeout + (config.WaitAfterClick * time.Duration(config.MaxClicks))
+	tabCtx, cancelTimeout := context.WithTimeout(tabCtx, totalTimeout)
+	defer cancelTimeout()
+
+	var statusCode int
+	var contentType string
+
+	// Set up response listener
+	chromedp.ListenTarget(tabCtx, func(ev interface{}) {
+		if resp, ok := ev.(*network.EventResponseReceived); ok {
+			if resp.Type == network.ResourceTypeDocument {
+				statusCode = int(resp.Response.Status)
+				contentType = resp.Response.MimeType
+			}
+		}
+	})
+
+	// Build initial navigation actions with anti-bot scripts
+	scripts := BuildInjectionScripts(f.antiBot)
+	var actions []chromedp.Action
+
+	if len(scripts) > 0 {
+		actions = append(actions, chromedp.ActionFunc(func(ctx context.Context) error {
+			for _, script := range scripts {
+				_, err := page.AddScriptToEvaluateOnNewDocument(script).Do(ctx)
+				if err != nil {
+					return fmt.Errorf("failed to inject anti-bot script: %w", err)
+				}
+			}
+			return nil
+		}))
+	}
+
+	// Add random action delay if enabled
+	if f.antiBot.RandomActionDelays {
+		actions = append(actions, chromedp.Sleep(RandomActionDelay()))
+	}
+
+	// Navigate to the initial URL
+	actions = append(actions,
+		network.Enable(),
+		chromedp.Navigate(rawURL),
+		chromedp.WaitReady("body", chromedp.ByQuery),
+		chromedp.Sleep(500*time.Millisecond),
+	)
+
+	if err := chromedp.Run(tabCtx, actions...); err != nil {
+		return result, fmt.Errorf("initial navigation failed: %w", err)
+	}
+
+	// Initialize pagination state
+	paginationState := NewPaginationState(config, f.antiBot)
+
+	// Process the initial page (page 1)
+	initialResult, err := f.fetchCurrentPage(tabCtx, rawURL, statusCode, contentType)
+	if err != nil {
+		return result, fmt.Errorf("failed to fetch initial page: %w", err)
+	}
+
+	// Get initial content hash
+	initialHash, err := getContentHash(tabCtx)
+	if err != nil {
+		return result, fmt.Errorf("failed to get initial content hash: %w", err)
+	}
+	paginationState.SeenHashes[initialHash] = true
+	paginationState.ContentHash = initialHash
+
+	result.TotalPages = 1
+
+	// Call callback for initial page
+	if err := callback(initialResult, 1, rawURL); err != nil {
+		return result, err
+	}
+
+	// Pagination loop
+	for paginationState.CanContinue() {
+		// Check context cancellation
+		select {
+		case <-tabCtx.Done():
+			result.ExhaustedReason = "context cancelled"
+			return result, nil
+		default:
+		}
+
+		// Attempt to click pagination
+		clickResult, err := ClickPagination(tabCtx, config.Selector, config, paginationState.Behavior)
+		if err != nil {
+			result.LastError = err
+			result.ExhaustedReason = fmt.Sprintf("click error: %v", err)
+			return result, nil
+		}
+
+		if clickResult.Exhausted {
+			result.ExhaustedReason = clickResult.Reason
+			return result, nil
+		}
+
+		if !clickResult.Success {
+			result.ExhaustedReason = "click unsuccessful"
+			return result, nil
+		}
+
+		// Check for duplicate content
+		if config.StopOnDuplicate {
+			isNew := paginationState.RecordClick(clickResult.ContentHash)
+			if !isNew {
+				result.ExhaustedReason = "duplicate content detected"
+				return result, nil
+			}
+		} else {
+			paginationState.ClickCount++
+		}
+
+		// Fetch the new page content
+		pageResult, err := f.fetchCurrentPage(tabCtx, rawURL, statusCode, contentType)
+		if err != nil {
+			result.LastError = err
+			result.ExhaustedReason = fmt.Sprintf("fetch error: %v", err)
+			return result, nil
+		}
+
+		result.TotalPages++
+		pageNumber := result.TotalPages
+
+		// Generate virtual URL with page parameter
+		virtualURL := fmt.Sprintf("%s?_page=%d", rawURL, pageNumber)
+
+		// Call callback for this page
+		if err := callback(pageResult, pageNumber, virtualURL); err != nil {
+			result.LastError = err
+			return result, nil
+		}
+	}
+
+	result.ExhaustedReason = fmt.Sprintf("max clicks reached (%d)", config.MaxClicks)
+	return result, nil
+}
+
+// fetchCurrentPage fetches the content of the currently loaded page in the tab
+func (f *BrowserFetcher) fetchCurrentPage(ctx context.Context, originalURL string, statusCode int, contentType string) (*FetchResult, error) {
+	var html string
+	var finalURL string
+
+	err := chromedp.Run(ctx,
+		chromedp.Location(&finalURL),
+		chromedp.OuterHTML("html", &html, chromedp.ByQuery),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Default status code if not captured
+	if statusCode == 0 {
+		statusCode = http.StatusOK
+	}
+
+	// Default content type
+	if contentType == "" {
+		contentType = "text/html"
+	}
+
+	return &FetchResult{
+		Body:        []byte(html),
+		StatusCode:  statusCode,
+		ContentType: contentType,
+		FinalURL:    finalURL,
+	}, nil
+}

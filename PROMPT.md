@@ -95,3 +95,46 @@ Expanded skill.md from 170 lines to 564 lines with comprehensive documentation:
 - All 10 API endpoints from `internal/api/routes.go` documented
 - All 11 SSE event types from `internal/crawler/events.go` documented
 - Copy-paste ready examples for curl commands and CLI usage
+
+## 2026-01-20: Implement Click-Based Pagination for Browser Mode
+
+Add a new option to browser mode that enables clicking pagination elements (Next, Load More buttons) that don't have href attributes. The feature mimics human-like clicking behavior using the existing anti-bot infrastructure.
+
+### Summary
+Implemented click-based pagination for browser mode with full parity across all interfaces:
+
+**Core Implementation:**
+- `PaginationConfig` struct in `config.go` with validation (requires browser mode, selector required)
+- New `pagination.go` with `PaginationState`, `ClickPagination()`, and helper functions
+- `FetchWithPagination()` method in `browser.go` with callback-based page processing
+- Integration in `crawler.go:processURL()` with new `processURLWithPagination()` method
+
+**Features:**
+- Human-like clicking via existing `HumanBehavior` helper (scrolling, click offsets, delays)
+- Exhaustion detection (element not found, disabled, not visible, max clicks)
+- Duplicate content detection via SHA-256 hashing
+- Virtual URLs for unique filenames (`?_page=N`)
+- Links extracted at same depth level
+
+**Interface Support:**
+- GUI: New "Click-Based Pagination" section in ConfigForm.svelte (visible when browser mode selected)
+- CLI: 6 new flags (`--enable-pagination`, `--pagination-selector`, etc.)
+- API: New `PaginationConfig` in `CrawlRequest`
+- MCP: New `PaginationInput` in `StartCrawlInput`
+
+**Files Created:**
+- `internal/crawler/pagination.go`
+- `internal/crawler/pagination_test.go`
+
+**Files Modified:**
+- `internal/crawler/config.go` (PaginationConfig struct + validation)
+- `internal/crawler/browser.go` (FetchWithPagination method)
+- `internal/crawler/crawler.go` (processURLWithPagination integration)
+- `pkg/app/app.go` (CrawlConfig pagination fields)
+- `cmd/cli/main.go` (pagination flags)
+- `internal/api/types.go` (PaginationConfig type)
+- `internal/mcp/types.go` (PaginationInput type)
+- `frontend/src/lib/stores/crawler.js` (pagination settings)
+- `frontend/src/lib/components/ConfigForm.svelte` (pagination UI section)
+- `ARCHITECTURE.md` (pagination documentation)
+- `README.md` (pagination usage examples)

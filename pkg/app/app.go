@@ -54,6 +54,13 @@ type CrawlConfig struct {
 	FetchMode          string `json:"fetchMode"`
 	Headless           bool   `json:"headless"`
 	WaitForLogin       bool   `json:"waitForLogin"`
+	// Pagination settings
+	EnablePagination          bool   `json:"enablePagination"`
+	PaginationSelector        string `json:"paginationSelector"`
+	MaxPaginationClicks       int    `json:"maxPaginationClicks"`
+	PaginationWait            string `json:"paginationWait"`
+	PaginationWaitSelector    string `json:"paginationWaitSelector"`
+	PaginationStopOnDuplicate bool   `json:"paginationStopOnDuplicate"`
 	// Anti-bot settings
 	HideWebdriver        bool   `json:"hideWebdriver"`
 	SpoofPlugins         bool   `json:"spoofPlugins"`
@@ -110,6 +117,27 @@ func (a *App) StartCrawl(cfg CrawlConfig) error {
 		Timezone:             cfg.Timezone,
 	}
 
+	// Build pagination config if enabled
+	var paginationConfig crawler.PaginationConfig
+	if cfg.EnablePagination {
+		paginationWait, err := time.ParseDuration(cfg.PaginationWait)
+		if err != nil {
+			paginationWait = 2 * time.Second // Default to 2 seconds
+		}
+		paginationConfig = crawler.PaginationConfig{
+			Enable:          true,
+			Selector:        cfg.PaginationSelector,
+			MaxClicks:       cfg.MaxPaginationClicks,
+			WaitAfterClick:  paginationWait,
+			WaitSelector:    cfg.PaginationWaitSelector,
+			StopOnDuplicate: cfg.PaginationStopOnDuplicate,
+		}
+		// Set defaults if not specified
+		if paginationConfig.MaxClicks <= 0 {
+			paginationConfig.MaxClicks = 100
+		}
+	}
+
 	// Build config
 	config := crawler.Config{
 		URL:                cfg.URL,
@@ -129,6 +157,7 @@ func (a *App) StartCrawl(cfg CrawlConfig) error {
 		Headless:           cfg.Headless,
 		WaitForLogin:       cfg.WaitForLogin,
 		AntiBot:            antiBotConfig,
+		Pagination:         paginationConfig,
 	}
 
 	// Parse exclude extensions

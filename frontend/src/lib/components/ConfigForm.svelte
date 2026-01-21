@@ -32,6 +32,13 @@
     linkSelectors: "CSS selectors to filter which links to follow. Default follows all links with href attribute.",
     userAgent: "HTTP User-Agent header sent with requests. Some sites block non-browser user agents.",
     stateFile: "JSON file storing crawl progress. Allows resuming interrupted crawls from where they left off.",
+    // Pagination tooltips
+    enablePagination: "Click pagination elements (Next, Load More buttons) to crawl multiple pages from a single URL.",
+    paginationSelector: "CSS selector for the pagination element to click (e.g., 'a.next', '.load-more-btn', 'button[aria-label=\"Next\"]').",
+    maxPaginationClicks: "Maximum number of pagination clicks per URL. Prevents infinite loops on misconfigured selectors.",
+    paginationWait: "Time to wait after each pagination click for content to load (e.g., 2s, 500ms).",
+    paginationWaitSelector: "Optional CSS selector to wait for after clicking. Useful when content loads dynamically.",
+    paginationStopOnDuplicate: "Stop pagination if the same content is seen twice. Detects when pagination wraps around.",
     // Anti-bot tooltips
     hideWebdriver: "Removes navigator.webdriver flag that identifies browser automation.",
     spoofPlugins: "Injects realistic browser plugins to match a normal Chrome profile.",
@@ -190,6 +197,95 @@
       {/if}
     </div>
   </div>
+
+  {#if config.fetchMode === 'browser'}
+    <div class="pagination-section">
+      <h3>Click-Based Pagination</h3>
+      <label class="pagination-enable">
+        <input
+          type="checkbox"
+          bind:checked={config.enablePagination}
+          disabled={status !== 'stopped'}
+        />
+        Enable Pagination
+        <span class="info-icon" title={tooltips.enablePagination}>i</span>
+      </label>
+
+      {#if config.enablePagination}
+        <div class="pagination-fields">
+          <div class="form-group">
+            <label for="paginationSelector">
+              Pagination Selector *
+              <span class="info-icon" title={tooltips.paginationSelector}>i</span>
+            </label>
+            <input
+              type="text"
+              id="paginationSelector"
+              bind:value={config.paginationSelector}
+              placeholder="a.next, .load-more-btn, button[data-next]"
+              disabled={status !== 'stopped'}
+            />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="maxPaginationClicks">
+                Max Clicks
+                <span class="info-icon" title={tooltips.maxPaginationClicks}>i</span>
+              </label>
+              <input
+                type="number"
+                id="maxPaginationClicks"
+                bind:value={config.maxPaginationClicks}
+                on:input={handleInput('maxPaginationClicks')}
+                min="1"
+                max="1000"
+                disabled={status !== 'stopped'}
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="paginationWait">
+                Wait After Click
+                <span class="info-icon" title={tooltips.paginationWait}>i</span>
+              </label>
+              <input
+                type="text"
+                id="paginationWait"
+                bind:value={config.paginationWait}
+                placeholder="2s"
+                disabled={status !== 'stopped'}
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="paginationWaitSelector">
+              Wait Selector (optional)
+              <span class="info-icon" title={tooltips.paginationWaitSelector}>i</span>
+            </label>
+            <input
+              type="text"
+              id="paginationWaitSelector"
+              bind:value={config.paginationWaitSelector}
+              placeholder=".content-loaded, #results"
+              disabled={status !== 'stopped'}
+            />
+          </div>
+
+          <label class="pagination-duplicate">
+            <input
+              type="checkbox"
+              bind:checked={config.paginationStopOnDuplicate}
+              disabled={status !== 'stopped'}
+            />
+            Stop on Duplicate Content
+            <span class="info-icon" title={tooltips.paginationStopOnDuplicate}>i</span>
+          </label>
+        </div>
+      {/if}
+    </div>
+  {/if}
 
   {#if config.fetchMode === 'browser' && !config.headless}
     <div class="antibot-section">
@@ -626,6 +722,71 @@
   }
 
   .wait-login-toggle .info-icon {
+    margin-left: 2px;
+    vertical-align: middle;
+    transform: none;
+  }
+
+  /* Pagination section styles */
+  .pagination-section {
+    margin: 16px 0;
+    padding: 16px;
+    border: 1px solid #2a3f5f;
+    border-radius: 8px;
+    background: rgba(74, 158, 255, 0.05);
+  }
+
+  .pagination-section h3 {
+    font-size: 1rem;
+    margin: 0 0 12px 0;
+    color: #4a9eff;
+    font-weight: 500;
+  }
+
+  .pagination-enable {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    color: #ccc;
+    font-size: 0.9rem;
+  }
+
+  .pagination-enable input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+
+  .pagination-enable .info-icon {
+    margin-left: 2px;
+    vertical-align: middle;
+    transform: none;
+  }
+
+  .pagination-fields {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #2a3f5f;
+  }
+
+  .pagination-duplicate {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    color: #ccc;
+    font-size: 0.85rem;
+    margin-top: 8px;
+  }
+
+  .pagination-duplicate input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+  }
+
+  .pagination-duplicate .info-icon {
     margin-left: 2px;
     vertical-align: middle;
     transform: none;

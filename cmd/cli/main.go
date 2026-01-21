@@ -17,6 +17,7 @@ func main() {
 	var excludeExtensions string
 	var linkSelectors string
 	var fetchMode string
+	var paginationWait string
 
 	flag.StringVar(&config.URL, "url", "", "Starting URL to scrape")
 	flag.BoolVar(&config.Concurrent, "concurrent", false, "Run in concurrent mode")
@@ -38,6 +39,14 @@ func main() {
 	flag.BoolVar(&config.Headless, "headless", true, "Run browser in headless mode (only applies when fetch-mode=browser)")
 	flag.BoolVar(&config.WaitForLogin, "wait-login", false, "Wait for manual login before crawling (only applies when fetch-mode=browser and headless=false)")
 
+	// Pagination flags (only apply when fetch-mode=browser)
+	flag.BoolVar(&config.Pagination.Enable, "enable-pagination", false, "Enable click-based pagination (requires fetch-mode=browser)")
+	flag.StringVar(&config.Pagination.Selector, "pagination-selector", "", "CSS selector for pagination element (e.g., 'a.next', '.load-more')")
+	flag.IntVar(&config.Pagination.MaxClicks, "max-pagination-clicks", 100, "Maximum number of pagination clicks")
+	flag.StringVar(&paginationWait, "pagination-wait", "2s", "Time to wait after each pagination click (e.g., 2s, 500ms)")
+	flag.StringVar(&config.Pagination.WaitSelector, "pagination-wait-selector", "", "CSS selector to wait for after pagination click")
+	flag.BoolVar(&config.Pagination.StopOnDuplicate, "pagination-stop-duplicate", true, "Stop pagination if duplicate content is detected")
+
 	// Anti-bot bypass flags (only apply when fetch-mode=browser and headless=false)
 	flag.BoolVar(&config.AntiBot.HideWebdriver, "hide-webdriver", false, "Hide navigator.webdriver flag")
 	flag.BoolVar(&config.AntiBot.SpoofPlugins, "spoof-plugins", false, "Inject realistic browser plugins")
@@ -57,6 +66,15 @@ func main() {
 
 	// Set fetch mode
 	config.FetchMode = crawler.FetchMode(fetchMode)
+
+	// Parse pagination wait duration
+	if config.Pagination.Enable {
+		waitDuration, err := time.ParseDuration(paginationWait)
+		if err != nil {
+			waitDuration = 2 * time.Second
+		}
+		config.Pagination.WaitAfterClick = waitDuration
+	}
 
 	// Parse exclude extensions
 	if excludeExtensions != "" {

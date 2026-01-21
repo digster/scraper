@@ -47,6 +47,17 @@ type AntiBotConfig struct {
 	Timezone        string `json:"timezone"`        // Explicit timezone (e.g., America/New_York)
 }
 
+// PaginationConfig holds configuration for click-based pagination
+// This allows clicking "Next" or "Load More" buttons to paginate through content
+type PaginationConfig struct {
+	Enable          bool          `json:"enable"`          // Enable click-based pagination
+	Selector        string        `json:"selector"`        // CSS selector for pagination element (e.g., "a.next", ".load-more-btn")
+	MaxClicks       int           `json:"maxClicks"`       // Maximum number of pagination clicks (default: 100)
+	WaitAfterClick  time.Duration `json:"waitAfterClick"`  // Time to wait after each click (default: 2s)
+	WaitSelector    string        `json:"waitSelector"`    // Optional: wait for this element to appear after click
+	StopOnDuplicate bool          `json:"stopOnDuplicate"` // Stop if same content is seen twice
+}
+
 // Config holds all configuration options for the crawler
 type Config struct {
 	URL                string
@@ -69,6 +80,7 @@ type Config struct {
 	Headless           bool
 	WaitForLogin       bool
 	AntiBot            AntiBotConfig
+	Pagination         PaginationConfig
 }
 
 // ValidateConfig checks that configuration values are valid
@@ -109,6 +121,25 @@ func ValidateConfig(config *Config) error {
 	// Validate FetchMode
 	if config.FetchMode != "" && config.FetchMode != FetchModeHTTP && config.FetchMode != FetchModeBrowser {
 		return fmt.Errorf("fetch-mode must be 'http' or 'browser', got: %s", config.FetchMode)
+	}
+
+	// Validate PaginationConfig
+	if config.Pagination.Enable {
+		// Pagination requires browser mode
+		if config.FetchMode != FetchModeBrowser {
+			return fmt.Errorf("pagination requires browser fetch mode")
+		}
+		// Selector is required when pagination is enabled
+		if config.Pagination.Selector == "" {
+			return fmt.Errorf("pagination selector is required when pagination is enabled")
+		}
+		// Set defaults if not specified
+		if config.Pagination.MaxClicks <= 0 {
+			config.Pagination.MaxClicks = 100
+		}
+		if config.Pagination.WaitAfterClick <= 0 {
+			config.Pagination.WaitAfterClick = 2 * time.Second
+		}
 	}
 
 	// Validate PrefixFilterURL if provided

@@ -49,6 +49,13 @@ function createConfigStore() {
         fetchMode: 'http',
         headless: true,
         waitForLogin: false,
+        // Pagination settings (browser mode only)
+        enablePagination: false,
+        paginationSelector: '',
+        maxPaginationClicks: 100,
+        paginationWait: '2s',
+        paginationWaitSelector: '',
+        paginationStopOnDuplicate: true,
         // Anti-bot settings (visible only in non-headless browser mode)
         hideWebdriver: false,
         spoofPlugins: false,
@@ -86,6 +93,13 @@ function createConfigStore() {
             fetchMode: 'http',
             headless: true,
             waitForLogin: false,
+            // Pagination settings
+            enablePagination: false,
+            paginationSelector: '',
+            maxPaginationClicks: 100,
+            paginationWait: '2s',
+            paginationWaitSelector: '',
+            paginationStopOnDuplicate: true,
             // Anti-bot settings
             hideWebdriver: false,
             spoofPlugins: false,

@@ -145,6 +145,28 @@ type Fetcher interface {
 - Full JavaScript rendering
 - Anti-bot bypass options (fingerprint spoofing, human behavior simulation)
 - Supports headless or visible mode for login flows
+- Click-based pagination support via `FetchWithPagination()`
+
+### Pagination (`pagination.go`)
+
+Handles click-based pagination for SPAs and infinite scroll pages:
+
+```go
+type PaginationConfig struct {
+    Enable          bool          // Enable click-based pagination
+    Selector        string        // CSS selector for pagination element
+    MaxClicks       int           // Maximum pagination clicks (default: 100)
+    WaitAfterClick  time.Duration // Wait time after each click (default: 2s)
+    WaitSelector    string        // Optional: wait for element after click
+    StopOnDuplicate bool          // Stop if duplicate content detected
+}
+```
+
+**Features:**
+- Human-like clicking behavior (leverages anti-bot infrastructure)
+- Automatic exhaustion detection (element not found, disabled, not visible)
+- Content hashing for duplicate detection
+- Natural scrolling to pagination elements
 
 ### State Management (`state.go`)
 
@@ -394,6 +416,17 @@ The `Config` struct (`config.go`) supports:
 | ExcludeExtensions | `-exclude-extensions` | Skip file extensions (e.g., `js,css,png`) |
 | IgnoreRobots | `-ignore-robots` | Bypass robots.txt |
 | DisableReadability | `-no-readability` | Skip content extraction |
+
+### Pagination Options (browser mode only)
+
+| Option | CLI Flag | Description |
+|--------|----------|-------------|
+| Enable | `--enable-pagination` | Enable click-based pagination |
+| Selector | `--pagination-selector` | CSS selector for pagination element |
+| MaxClicks | `--max-pagination-clicks` | Max clicks per URL (default: 100) |
+| WaitAfterClick | `--pagination-wait` | Wait after click (default: 2s) |
+| WaitSelector | `--pagination-wait-selector` | Wait for element after click |
+| StopOnDuplicate | `--pagination-stop-duplicate` | Stop on duplicate content (default: true) |
 
 ### Anti-Bot Options (browser mode only)
 

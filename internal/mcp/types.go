@@ -6,21 +6,32 @@ import "time"
 
 // StartCrawlInput is the input for scraper_start tool
 type StartCrawlInput struct {
-	URL               string         `json:"url" jsonschema:"required,description=Target URL to start crawling from"`
-	MaxDepth          int            `json:"maxDepth,omitempty" jsonschema:"description=Maximum link depth to crawl (default: 10)"`
-	Concurrent        bool           `json:"concurrent,omitempty" jsonschema:"description=Enable concurrent crawling for faster processing"`
-	Delay             string         `json:"delay,omitempty" jsonschema:"description=Delay between requests (e.g. '500ms' or '1s')"`
-	OutputDir         string         `json:"outputDir,omitempty" jsonschema:"description=Directory to save crawled content"`
-	PrefixFilter      string         `json:"prefixFilter,omitempty" jsonschema:"description=Only crawl URLs starting with this prefix"`
-	FetchMode         string         `json:"fetchMode,omitempty" jsonschema:"enum=http,enum=browser,description=Fetch mode: 'http' for fast requests or 'browser' for JavaScript-rendered pages"`
-	Headless          *bool          `json:"headless,omitempty" jsonschema:"description=Run browser in headless mode (default: true)"`
-	WaitForLogin      bool           `json:"waitForLogin,omitempty" jsonschema:"description=Wait for manual login before starting crawl (browser mode only)"`
-	UserAgent         string         `json:"userAgent,omitempty" jsonschema:"description=Custom User-Agent string"`
-	IgnoreRobots      bool           `json:"ignoreRobots,omitempty" jsonschema:"description=Ignore robots.txt restrictions"`
-	MinContentLength  int            `json:"minContent,omitempty" jsonschema:"description=Minimum content length to save a page (default: 100)"`
-	ExcludeExtensions []string       `json:"excludeExtensions,omitempty" jsonschema:"description=File extensions to exclude (e.g. ['.pdf', '.zip'])"`
-	LinkSelectors     []string       `json:"linkSelectors,omitempty" jsonschema:"description=CSS selectors to find links (defaults to standard link tags)"`
-	AntiBot           *AntiBotInput  `json:"antiBot,omitempty" jsonschema:"description=Anti-bot detection evasion settings (browser mode only)"`
+	URL               string           `json:"url" jsonschema:"required,description=Target URL to start crawling from"`
+	MaxDepth          int              `json:"maxDepth,omitempty" jsonschema:"description=Maximum link depth to crawl (default: 10)"`
+	Concurrent        bool             `json:"concurrent,omitempty" jsonschema:"description=Enable concurrent crawling for faster processing"`
+	Delay             string           `json:"delay,omitempty" jsonschema:"description=Delay between requests (e.g. '500ms' or '1s')"`
+	OutputDir         string           `json:"outputDir,omitempty" jsonschema:"description=Directory to save crawled content"`
+	PrefixFilter      string           `json:"prefixFilter,omitempty" jsonschema:"description=Only crawl URLs starting with this prefix"`
+	FetchMode         string           `json:"fetchMode,omitempty" jsonschema:"enum=http,enum=browser,description=Fetch mode: 'http' for fast requests or 'browser' for JavaScript-rendered pages"`
+	Headless          *bool            `json:"headless,omitempty" jsonschema:"description=Run browser in headless mode (default: true)"`
+	WaitForLogin      bool             `json:"waitForLogin,omitempty" jsonschema:"description=Wait for manual login before starting crawl (browser mode only)"`
+	UserAgent         string           `json:"userAgent,omitempty" jsonschema:"description=Custom User-Agent string"`
+	IgnoreRobots      bool             `json:"ignoreRobots,omitempty" jsonschema:"description=Ignore robots.txt restrictions"`
+	MinContentLength  int              `json:"minContent,omitempty" jsonschema:"description=Minimum content length to save a page (default: 100)"`
+	ExcludeExtensions []string         `json:"excludeExtensions,omitempty" jsonschema:"description=File extensions to exclude (e.g. ['.pdf', '.zip'])"`
+	LinkSelectors     []string         `json:"linkSelectors,omitempty" jsonschema:"description=CSS selectors to find links (defaults to standard link tags)"`
+	Pagination        *PaginationInput `json:"pagination,omitempty" jsonschema:"description=Click-based pagination settings (browser mode only)"`
+	AntiBot           *AntiBotInput    `json:"antiBot,omitempty" jsonschema:"description=Anti-bot detection evasion settings (browser mode only)"`
+}
+
+// PaginationInput configures click-based pagination for browser mode
+type PaginationInput struct {
+	Enable          bool   `json:"enable,omitempty" jsonschema:"description=Enable click-based pagination"`
+	Selector        string `json:"selector,omitempty" jsonschema:"description=CSS selector for pagination element (e.g. 'a.next' or '.load-more-btn')"`
+	MaxClicks       int    `json:"maxClicks,omitempty" jsonschema:"description=Maximum pagination clicks per URL (default: 100)"`
+	WaitAfterClick  string `json:"waitAfterClick,omitempty" jsonschema:"description=Time to wait after clicking (e.g. '2s')"`
+	WaitSelector    string `json:"waitSelector,omitempty" jsonschema:"description=CSS selector to wait for after click (optional)"`
+	StopOnDuplicate bool   `json:"stopOnDuplicate,omitempty" jsonschema:"description=Stop if duplicate content detected (default: true)"`
 }
 
 // AntiBotInput configures anti-bot detection measures

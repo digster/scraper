@@ -21,24 +21,35 @@ const (
 
 // CrawlRequest represents the request body for starting a new crawl
 type CrawlRequest struct {
-	URL                string         `json:"url"`
-	MaxDepth           int            `json:"maxDepth,omitempty"`
-	Concurrent         bool           `json:"concurrent,omitempty"`
-	Delay              string         `json:"delay,omitempty"`
-	OutputDir          string         `json:"outputDir,omitempty"`
-	StateFile          string         `json:"stateFile,omitempty"`
-	PrefixFilterURL    string         `json:"prefixFilter,omitempty"`
-	ExcludeExtensions  []string       `json:"excludeExtensions,omitempty"`
-	LinkSelectors      []string       `json:"linkSelectors,omitempty"`
-	Verbose            bool           `json:"verbose,omitempty"`
-	UserAgent          string         `json:"userAgent,omitempty"`
-	IgnoreRobots       bool           `json:"ignoreRobots,omitempty"`
-	MinContentLength   int            `json:"minContent,omitempty"`
-	DisableReadability bool           `json:"disableReadability,omitempty"`
-	FetchMode          string         `json:"fetchMode,omitempty"`
-	Headless           *bool          `json:"headless,omitempty"`
-	WaitForLogin       bool           `json:"waitForLogin,omitempty"`
-	AntiBot            *AntiBotConfig `json:"antiBot,omitempty"`
+	URL                string            `json:"url"`
+	MaxDepth           int               `json:"maxDepth,omitempty"`
+	Concurrent         bool              `json:"concurrent,omitempty"`
+	Delay              string            `json:"delay,omitempty"`
+	OutputDir          string            `json:"outputDir,omitempty"`
+	StateFile          string            `json:"stateFile,omitempty"`
+	PrefixFilterURL    string            `json:"prefixFilter,omitempty"`
+	ExcludeExtensions  []string          `json:"excludeExtensions,omitempty"`
+	LinkSelectors      []string          `json:"linkSelectors,omitempty"`
+	Verbose            bool              `json:"verbose,omitempty"`
+	UserAgent          string            `json:"userAgent,omitempty"`
+	IgnoreRobots       bool              `json:"ignoreRobots,omitempty"`
+	MinContentLength   int               `json:"minContent,omitempty"`
+	DisableReadability bool              `json:"disableReadability,omitempty"`
+	FetchMode          string            `json:"fetchMode,omitempty"`
+	Headless           *bool             `json:"headless,omitempty"`
+	WaitForLogin       bool              `json:"waitForLogin,omitempty"`
+	Pagination         *PaginationConfig `json:"pagination,omitempty"`
+	AntiBot            *AntiBotConfig    `json:"antiBot,omitempty"`
+}
+
+// PaginationConfig holds click-based pagination settings
+type PaginationConfig struct {
+	Enable          bool   `json:"enable,omitempty"`
+	Selector        string `json:"selector,omitempty"`
+	MaxClicks       int    `json:"maxClicks,omitempty"`
+	WaitAfterClick  string `json:"waitAfterClick,omitempty"`
+	WaitSelector    string `json:"waitSelector,omitempty"`
+	StopOnDuplicate bool   `json:"stopOnDuplicate,omitempty"`
 }
 
 // AntiBotConfig mirrors crawler.AntiBotConfig for API requests

@@ -18,6 +18,7 @@ Ask any clarifying questions if needed.
 - **Depth Control**: Respects maximum crawl depth based on discovery hierarchy
 - **Multiple Fetch Modes**: Choose between HTTP client or real browser (Chrome/Chromium) for fetching
 - **Browser Mode**: Use a real browser via chromedp to bypass anti-bot protection (headless or visible)
+- **Click-Based Pagination**: Navigate through "Next" or "Load More" buttons that don't have href attributes
 - **Asset Filtering**: Exclude specific file extensions (js, css, images, etc.) from being downloaded
 - **Concurrent/Sequential Mode**: Choose between concurrent or sequential crawling
 - **Configurable Delays**: Set delays between fetches to be respectful to servers
@@ -290,6 +291,12 @@ Simply run the built application or use `wails dev` for development. All options
 - `-fetch-mode`: Fetch mode - 'http' for standard HTTP client, 'browser' for real Chrome browser (default: http)
 - `-headless`: Run browser in headless mode when using browser fetch mode (default: true)
 - `-wait-login`: Wait for manual login before crawling; only applies when using browser mode with headless=false (default: false)
+- `-enable-pagination`: Enable click-based pagination (requires browser mode)
+- `-pagination-selector`: CSS selector for pagination element (e.g., 'a.next', '.load-more')
+- `-max-pagination-clicks`: Maximum pagination clicks per URL (default: 100)
+- `-pagination-wait`: Wait time after each pagination click (default: 2s)
+- `-pagination-wait-selector`: CSS selector to wait for after pagination click
+- `-pagination-stop-duplicate`: Stop pagination if duplicate content is detected (default: true)
 - `-hide-webdriver`: Hide navigator.webdriver flag (anti-bot)
 - `-spoof-plugins`: Inject realistic browser plugins (anti-bot)
 - `-spoof-languages`: Set realistic navigator.languages (anti-bot)
@@ -484,6 +491,54 @@ When crawling sites that require authentication, you can use the "Wait for Login
 When using browser mode with headless disabled, a "Wait for Login" checkbox will appear. Enable it, then start the crawl. A modal dialog will appear prompting you to complete login in the browser window. Click "Login Complete - Start Crawling" when ready.
 
 **Note:** Session cookies are preserved in the browser context, so all subsequent page fetches during the crawl will use your authenticated session.
+
+### Click-Based Pagination (Browser Mode Only)
+
+For sites with click-based pagination (Next buttons, Load More, infinite scroll), use the pagination feature to automatically click through pages:
+
+```bash
+# Basic pagination with Next button
+./scraper -url https://example.com/articles \
+  -fetch-mode browser \
+  -enable-pagination \
+  -pagination-selector "a.next-page"
+
+# Load More button with wait for content
+./scraper -url https://example.com/products \
+  -fetch-mode browser \
+  -enable-pagination \
+  -pagination-selector ".load-more-btn" \
+  -pagination-wait-selector ".product-item" \
+  -max-pagination-clicks 50
+
+# Infinite scroll with duplicate detection
+./scraper -url https://example.com/feed \
+  -fetch-mode browser \
+  -enable-pagination \
+  -pagination-selector "[data-next-page]" \
+  -pagination-stop-duplicate
+```
+
+**Pagination Options:**
+- `--enable-pagination`: Enables click-based pagination
+- `--pagination-selector`: CSS selector for the pagination element (required when enabled)
+- `--max-pagination-clicks`: Maximum number of clicks (default: 100, prevents infinite loops)
+- `--pagination-wait`: Time to wait after each click (default: 2s)
+- `--pagination-wait-selector`: Optional CSS selector to wait for after clicking
+- `--pagination-stop-duplicate`: Stop if same content is seen twice (default: true)
+
+**How it works:**
+1. The initial page is fetched and saved
+2. The pagination element is located using the CSS selector
+3. Human-like scrolling brings the element into view
+4. The element is clicked with natural behavior (offset, delay)
+5. Wait for page to update (fixed delay or element appearance)
+6. New content is saved with unique filename (`?_page=N`)
+7. Links are extracted at the same depth level
+8. Repeat until: element not found, disabled, max clicks reached, or duplicate content
+
+**GUI Usage:**
+When browser mode is selected, a "Click-Based Pagination" section appears in the configuration panel. Enable it and provide the CSS selector for the pagination element.
 
 ### Anti-Bot Bypass (Browser Mode Only)
 
