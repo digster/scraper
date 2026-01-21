@@ -219,6 +219,7 @@
 
   .preset-dropdown {
     flex: 1;
+    min-width: 0;
     padding: 8px 12px;
     border: 1px solid #2a3f5f;
     border-radius: 4px;
