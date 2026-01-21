@@ -78,6 +78,7 @@ scraper/
 │   │   ├── browser.go         # Chromedp browser automation
 │   │   ├── storage.go         # Content extraction and file saving
 │   │   ├── filter.go          # URL and content-type filtering
+│   │   ├── url.go             # URL normalization for deduplication
 │   │   └── index.go           # Post-crawl HTML report generator
 │   ├── api/                   # HTTP API package
 │   │   ├── server.go          # HTTP server lifecycle
@@ -186,6 +187,30 @@ type CrawlerState struct {
 ```
 
 State is saved every 10 URLs processed (configurable via `StateSaveInterval`).
+
+### URL Normalization (`url.go`)
+
+Transforms URLs to canonical form for better duplicate detection:
+
+```go
+type URLNormalizer struct {
+    lowercasePaths bool // Optionally lowercase URL paths
+}
+```
+
+**Normalizations performed:**
+- Lowercase scheme and host (`HTTPS://EXAMPLE.COM` → `https://example.com`)
+- Remove default ports (`:80` for HTTP, `:443` for HTTPS)
+- Sort query parameters alphabetically (`?b=2&a=1` → `?a=1&b=2`)
+- Uppercase percent encoding (`%2f` → `%2F`)
+- Remove empty query parameters (`?a=&b=2` → `?b=2`)
+- Remove trailing slashes (`/page/` → `/page`, except root `/`)
+- Remove URL fragments (for deduplication)
+
+**Usage:**
+- Enabled by default (`Config.NormalizeURLs = true`)
+- Path lowercasing disabled by default (some servers are case-sensitive)
+- Normalization happens at queue insertion points (initial URL, extracted URLs)
 
 ### Event System (`events.go`)
 

@@ -83,6 +83,12 @@ func (s *Server) registerTools() {
 			mcp.WithObject("antiBot",
 				mcp.Description("Anti-bot detection evasion settings (browser mode only)"),
 			),
+			mcp.WithBoolean("normalizeUrls",
+				mcp.Description("Enable URL normalization for better duplicate detection (default: true)"),
+			),
+			mcp.WithBoolean("lowercasePaths",
+				mcp.Description("Lowercase URL paths during normalization (default: false, use with caution)"),
+			),
 		),
 		s.handleStart,
 	)

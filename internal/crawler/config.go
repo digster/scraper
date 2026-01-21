@@ -81,6 +81,9 @@ type Config struct {
 	WaitForLogin       bool
 	AntiBot            AntiBotConfig
 	Pagination         PaginationConfig
+	// URL normalization options for better duplicate detection
+	NormalizeURLs  bool // Enable URL normalization (default: true)
+	LowercasePaths bool // Lowercase URL paths during normalization (default: false)
 }
 
 // ValidateConfig checks that configuration values are valid

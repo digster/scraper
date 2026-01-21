@@ -474,6 +474,12 @@ func translateConfig(req *CrawlRequest) (*crawler.Config, error) {
 		}
 	}
 
+	// URL normalization settings (default to true if not specified)
+	normalizeURLs := true
+	if req.NormalizeURLs != nil {
+		normalizeURLs = *req.NormalizeURLs
+	}
+
 	config := &crawler.Config{
 		URL:                req.URL,
 		Concurrent:         req.Concurrent,
@@ -494,6 +500,8 @@ func translateConfig(req *CrawlRequest) (*crawler.Config, error) {
 		Headless:           headless,
 		WaitForLogin:       req.WaitForLogin,
 		AntiBot:            antiBotConfig,
+		NormalizeURLs:      normalizeURLs,
+		LowercasePaths:     req.LowercasePaths,
 	}
 
 	// Validate config

@@ -54,7 +54,10 @@
     rotateUserAgent: "Cycles through realistic Chrome user agent strings.",
     randomViewport: "Uses common screen resolutions (1920x1080, 1366x768, etc.) randomly.",
     matchTimezone: "Enables browser timezone override.",
-    timezone: "Timezone to use (e.g., America/New_York, Europe/London)."
+    timezone: "Timezone to use (e.g., America/New_York, Europe/London).",
+    // URL normalization tooltips
+    normalizeUrls: "Enable URL normalization for better duplicate detection. Sorts query params, removes default ports, and standardizes encoding.",
+    lowercasePaths: "Lowercase URL paths during normalization. Use with caution - some servers are case-sensitive."
   };
 
   async function browseDirectory() {
@@ -406,6 +409,11 @@
       <span class="info-icon" title={tooltips.ignoreRobots}>i</span>
     </label>
     <label>
+      <input type="checkbox" bind:checked={config.normalizeUrls} disabled={status !== 'stopped'} />
+      Normalize URLs
+      <span class="info-icon" title={tooltips.normalizeUrls}>i</span>
+    </label>
+    <label>
       <input type="checkbox" bind:checked={config.verbose} disabled={status !== 'stopped'} />
       Verbose
     </label>
@@ -498,6 +506,20 @@
           <button on:click={browseStateFile} disabled={status !== 'stopped'}>...</button>
         </div>
       </div>
+
+      {#if config.normalizeUrls}
+        <div class="advanced-checkbox">
+          <label>
+            <input
+              type="checkbox"
+              bind:checked={config.lowercasePaths}
+              disabled={status !== 'stopped'}
+            />
+            Lowercase Paths
+            <span class="info-icon" title={tooltips.lowercasePaths}>i</span>
+          </label>
+        </div>
+      {/if}
     </div>
   {/if}
 </div>
@@ -861,5 +883,32 @@
 
   .timezone-input label {
     font-size: 0.85rem;
+  }
+
+  .advanced-checkbox {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #2a3f5f;
+  }
+
+  .advanced-checkbox label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    color: #ccc;
+    font-size: 0.85rem;
+  }
+
+  .advanced-checkbox input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+  }
+
+  .advanced-checkbox .info-icon {
+    margin-left: 2px;
+    vertical-align: middle;
+    transform: none;
   }
 </style>

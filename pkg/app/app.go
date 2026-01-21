@@ -81,6 +81,9 @@ type CrawlConfig struct {
 	RandomViewport       bool   `json:"randomViewport"`
 	MatchTimezone        bool   `json:"matchTimezone"`
 	Timezone             string `json:"timezone"`
+	// URL normalization settings
+	NormalizeURLs  bool `json:"normalizeUrls"`
+	LowercasePaths bool `json:"lowercasePaths"`
 }
 
 // StartCrawl starts the crawler with the given configuration
@@ -163,6 +166,8 @@ func (a *App) StartCrawl(cfg CrawlConfig) error {
 		WaitForLogin:       cfg.WaitForLogin,
 		AntiBot:            antiBotConfig,
 		Pagination:         paginationConfig,
+		NormalizeURLs:      cfg.NormalizeURLs,
+		LowercasePaths:     cfg.LowercasePaths,
 	}
 
 	// Parse exclude extensions
@@ -457,6 +462,9 @@ type PresetConfig struct {
 	RandomViewport       bool   `json:"randomViewport"`
 	MatchTimezone        bool   `json:"matchTimezone"`
 	Timezone             string `json:"timezone"`
+	// URL normalization settings
+	NormalizeURLs  bool `json:"normalizeUrls"`
+	LowercasePaths bool `json:"lowercasePaths"`
 }
 
 // PresetInfo contains lightweight metadata for listing presets

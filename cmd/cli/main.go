@@ -62,7 +62,15 @@ func main() {
 	flag.BoolVar(&config.AntiBot.RandomViewport, "random-viewport", false, "Use random viewport sizes")
 	flag.BoolVar(&config.AntiBot.MatchTimezone, "match-timezone", false, "Enable timezone override")
 	flag.StringVar(&config.AntiBot.Timezone, "timezone", "", "Timezone to use (e.g., America/New_York)")
+
+	// URL normalization flags
+	normalizeURLs := flag.Bool("normalize-urls", true, "Enable URL normalization for better duplicate detection")
+	lowercasePaths := flag.Bool("lowercase-paths", false, "Lowercase URL paths during normalization (use with caution)")
 	flag.Parse()
+
+	// Set URL normalization options
+	config.NormalizeURLs = *normalizeURLs
+	config.LowercasePaths = *lowercasePaths
 
 	// Set fetch mode
 	config.FetchMode = crawler.FetchMode(fetchMode)

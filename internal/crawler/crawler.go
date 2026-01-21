@@ -99,6 +99,7 @@ type Crawler struct {
 	loginDone    chan struct{}
 	loginWaiting bool
 	loginMu      sync.Mutex
+	normalizer   *URLNormalizer // URL normalizer for deduplication
 }
 
 // NewCrawler creates a new Crawler instance with the given configuration
@@ -171,6 +172,12 @@ func NewCrawlerWithEmitter(config Config, ctx context.Context, emitter EventEmit
 	}
 
 	c.pauseCond = sync.NewCond(&c.pauseMu)
+
+	// Initialize URL normalizer if enabled (default: true)
+	if config.NormalizeURLs {
+		c.normalizer = NewURLNormalizer(config.LowercasePaths)
+		logger.Debug("URL normalization enabled (lowercase paths: %v)", config.LowercasePaths)
+	}
 
 	if config.Concurrent {
 		c.semaphore = make(chan struct{}, MaxConcurrentRequests)
@@ -265,6 +272,14 @@ func (c *Crawler) isShuttingDown() bool {
 	default:
 		return false
 	}
+}
+
+// normalizeURL normalizes a URL for deduplication if normalization is enabled
+func (c *Crawler) normalizeURL(rawURL string) string {
+	if c.normalizer == nil {
+		return rawURL
+	}
+	return c.normalizer.Normalize(rawURL)
 }
 
 // fetchRobots performs an HTTP GET request for robots.txt
@@ -387,9 +402,11 @@ func (c *Crawler) Start() error {
 	}
 
 	if len(c.state.Queue) == 0 {
-		c.state.Queue = append(c.state.Queue, URLInfo{URL: c.config.URL, Depth: 0})
-		c.state.URLDepths[c.config.URL] = 0
-		c.state.Queued[c.config.URL] = true
+		// Normalize the initial URL for consistent deduplication
+		initialURL := c.normalizeURL(c.config.URL)
+		c.state.Queue = append(c.state.Queue, URLInfo{URL: initialURL, Depth: 0})
+		c.state.URLDepths[initialURL] = 0
+		c.state.Queued[initialURL] = true
 	}
 
 	// Handle login wait for non-headless browser mode
@@ -836,15 +853,18 @@ func (c *Crawler) extractAndQueueURLs(baseURL, html string, currentDepth int) {
 						}
 					}()
 
+					// Normalize URL for deduplication
+					normalizedURL := c.normalizeURL(urlStr)
+
 					c.mu.Lock()
 					defer c.mu.Unlock()
 
-					if !c.state.Visited[urlStr] && !c.state.Queued[urlStr] {
-						// Add URL with incremented depth
+					if !c.state.Visited[normalizedURL] && !c.state.Queued[normalizedURL] {
+						// Add URL with incremented depth (store normalized URL)
 						newDepth := currentDepth + 1
-						c.state.Queue = append(c.state.Queue, URLInfo{URL: urlStr, Depth: newDepth})
-						c.state.URLDepths[urlStr] = newDepth
-						c.state.Queued[urlStr] = true
+						c.state.Queue = append(c.state.Queue, URLInfo{URL: normalizedURL, Depth: newDepth})
+						c.state.URLDepths[normalizedURL] = newDepth
+						c.state.Queued[normalizedURL] = true
 					}
 				}()
 			}

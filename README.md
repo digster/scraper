@@ -322,6 +322,8 @@ Simply run the built application or use `wails dev` for development. All options
 - `-random-viewport`: Use random viewport sizes (anti-bot)
 - `-match-timezone`: Enable timezone override (anti-bot)
 - `-timezone`: Timezone to use, e.g., America/New_York (anti-bot)
+- `-normalize-urls`: Enable URL normalization for better duplicate detection (default: true)
+- `-lowercase-paths`: Lowercase URL paths during normalization (default: false, use with caution)
 
 ## How It Works
 
@@ -616,3 +618,9 @@ Each option can be individually enabled or disabled to customize your stealth co
 - Concurrent mode limits to 10 simultaneous requests to avoid overwhelming servers
 - State is saved every 10 processed URLs for resilience
 - Press Ctrl+C to gracefully stop crawling - state will be saved automatically for resumption
+- URL normalization (enabled by default) helps deduplicate URLs by standardizing:
+  - Query parameter order (`?b=2&a=1` → `?a=1&b=2`)
+  - Default ports (`http://example.com:80` → `http://example.com`)
+  - Trailing slashes (`/page/` → `/page`)
+  - Case normalization (host always lowercased, path optionally with `-lowercase-paths`)
+  - Percent encoding (`%2f` → `%2F`)

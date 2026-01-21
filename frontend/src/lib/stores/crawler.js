@@ -71,6 +71,9 @@ const defaultConfig = {
     randomViewport: false,
     matchTimezone: false,
     timezone: '',
+    // URL normalization settings
+    normalizeUrls: true,
+    lowercasePaths: false,
 };
 
 function createConfigStore() {

@@ -176,3 +176,58 @@ Implemented a presets system for saving and loading crawler configurations in th
 - Format: Individual JSON files (human-readable, easy to backup/share)
 - Fields saved: All except `outputDir` and `stateFile` (job-specific)
 - Name validation: `^[a-zA-Z0-9][a-zA-Z0-9_-]*$` (security)
+
+## 2026-01-20: Implement URL Normalization for Better Duplicate Detection
+
+Add URL normalization to transform URLs into a canonical form before storing/checking in Visited/Queued maps. This prevents logically identical URLs with different formatting from being treated as different.
+
+### Summary
+Implemented URL normalization with full interface support:
+
+**Core Implementation (`internal/crawler/url.go`):**
+- `URLNormalizer` struct with configurable `lowercasePaths` option
+- `Normalize()` method performs the following normalizations:
+  - Lowercase scheme and host
+  - Remove default ports (:80 for HTTP, :443 for HTTPS)
+  - Sort query parameters alphabetically
+  - Uppercase percent encoding (standardize %2f to %2F)
+  - Remove empty query parameters
+  - Remove trailing slashes (except root `/`)
+  - Remove fragments for deduplication
+  - Optionally lowercase paths (disabled by default for server compatibility)
+
+**Configuration Options:**
+- `NormalizeURLs`: Enable URL normalization (default: true)
+- `LowercasePaths`: Lowercase URL paths during normalization (default: false)
+
+**Interface Support:**
+- CLI: `--normalize-urls` (default true), `--lowercase-paths` flags
+- GUI: "Normalize URLs" checkbox + "Lowercase Paths" in advanced settings
+- API: `normalizeUrls` and `lowercasePaths` fields in `CrawlRequest`
+- MCP: `normalizeUrls` and `lowercasePaths` parameters in `scraper_start`
+
+**Files Created:**
+- `internal/crawler/url.go` (normalization logic)
+- `internal/crawler/url_test.go` (23 test cases covering all normalizations)
+
+**Files Modified:**
+- `internal/crawler/config.go` (new config fields)
+- `internal/crawler/crawler.go` (normalizer integration, normalizeURL method)
+- `cmd/cli/main.go` (new flags)
+- `pkg/app/app.go` (CrawlConfig and PresetConfig fields)
+- `internal/api/types.go` (CrawlRequest fields)
+- `internal/api/jobs.go` (translateConfig update)
+- `internal/mcp/server.go` (tool parameters)
+- `internal/mcp/tools.go` (parameter handling)
+- `frontend/src/lib/stores/crawler.js` (default config values)
+- `frontend/src/lib/components/ConfigForm.svelte` (UI toggles)
+
+**Example Normalizations:**
+| Input | Normalized |
+|-------|------------|
+| `?b=2&a=1` | `?a=1&b=2` |
+| `/page/` | `/page` |
+| `http://example.com:80/` | `http://example.com/` |
+| `HTTPS://EXAMPLE.COM/` | `https://example.com/` |
+| `?a=&b=2` | `?b=2` |
+| `%2f` | `%2F` |

@@ -40,6 +40,9 @@ type CrawlRequest struct {
 	WaitForLogin       bool              `json:"waitForLogin,omitempty"`
 	Pagination         *PaginationConfig `json:"pagination,omitempty"`
 	AntiBot            *AntiBotConfig    `json:"antiBot,omitempty"`
+	// URL normalization settings
+	NormalizeURLs  *bool `json:"normalizeUrls,omitempty"`
+	LowercasePaths bool  `json:"lowercasePaths,omitempty"`
 }
 
 // PaginationConfig holds click-based pagination settings

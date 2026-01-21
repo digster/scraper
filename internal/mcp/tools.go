@@ -65,6 +65,14 @@ func (s *Server) handleStart(ctx context.Context, req mcp.CallToolRequest) (*mcp
 		crawlReq.AntiBot = parseAntiBotConfig(antiBotRaw)
 	}
 
+	// Handle URL normalization settings
+	if normalizeURLs, ok := args["normalizeUrls"].(bool); ok {
+		crawlReq.NormalizeURLs = &normalizeURLs
+	}
+	if lowercasePaths, ok := args["lowercasePaths"].(bool); ok {
+		crawlReq.LowercasePaths = lowercasePaths
+	}
+
 	// Create job
 	job, err := s.jobManager.CreateJob(crawlReq)
 	if err != nil {
