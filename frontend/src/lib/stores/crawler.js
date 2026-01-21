@@ -46,6 +46,7 @@ const defaultConfig = {
     userAgent: '',
     ignoreRobots: false,
     minContent: 100,
+    disableReadability: false,
     fetchMode: 'http',
     headless: true,
     waitForLogin: false,

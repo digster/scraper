@@ -231,3 +231,18 @@ Implemented URL normalization with full interface support:
 | `HTTPS://EXAMPLE.COM/` | `https://example.com/` |
 | `?a=&b=2` | `?b=2` |
 | `%2f` | `%2F` |
+
+## 2026-01-20: Fix Missing disableReadability Field in Frontend
+
+Add the missing `disableReadability` field to the frontend to achieve full parity with the backend configuration.
+
+### Summary
+The `disableReadability` field existed in the backend (`CrawlConfig` and `PresetConfig`) but was completely missing from the frontend, causing presets to not save/load this setting and users having no GUI control.
+
+**Changes Made:**
+- `frontend/src/lib/stores/crawler.js`: Added `disableReadability: false` to `defaultConfig`
+- `frontend/src/lib/components/ConfigForm.svelte`: Added tooltip and checkbox in the main checkbox group
+
+**Files Modified:**
+- `frontend/src/lib/stores/crawler.js` (line 49)
+- `frontend/src/lib/components/ConfigForm.svelte` (lines 62, 419-421)

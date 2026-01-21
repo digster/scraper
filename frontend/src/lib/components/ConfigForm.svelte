@@ -57,7 +57,9 @@
     timezone: "Timezone to use (e.g., America/New_York, Europe/London).",
     // URL normalization tooltips
     normalizeUrls: "Enable URL normalization for better duplicate detection. Sorts query params, removes default ports, and standardizes encoding.",
-    lowercasePaths: "Lowercase URL paths during normalization. Use with caution - some servers are case-sensitive."
+    lowercasePaths: "Lowercase URL paths during normalization. Use with caution - some servers are case-sensitive.",
+    // Content processing
+    disableReadability: "Skip Readability processing and save raw HTML content. Enable this if Readability is removing content you need."
   };
 
   async function browseDirectory() {
@@ -412,6 +414,11 @@
       <input type="checkbox" bind:checked={config.normalizeUrls} disabled={status !== 'stopped'} />
       Normalize URLs
       <span class="info-icon" title={tooltips.normalizeUrls}>i</span>
+    </label>
+    <label>
+      <input type="checkbox" bind:checked={config.disableReadability} disabled={status !== 'stopped'} />
+      Disable Readability
+      <span class="info-icon" title={tooltips.disableReadability}>i</span>
     </label>
     <label>
       <input type="checkbox" bind:checked={config.verbose} disabled={status !== 'stopped'} />
