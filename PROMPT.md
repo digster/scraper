@@ -277,3 +277,31 @@ The browser fetcher had a hardcoded 500ms sleep after page navigation. This chan
 - `frontend/src/lib/components/ConfigForm.svelte` (tooltip and input field)
 - `internal/api/types.go` (pageLoadWait field in CrawlRequest)
 - `internal/api/jobs.go` (pageLoadWait parsing in translateConfig)
+
+## 2026-01-20: Fix State File "Read-Only File System" Error
+
+Fix the state file location issue where it was being written to the current working directory instead of a guaranteed-writable location. When running as a packaged Wails app on macOS, the CWD can be read-only (inside the `.app` bundle), causing "read-only file system" errors.
+
+### Summary
+The `SetDefaultStateFile` function was setting the state file to just a filename without a directory path, causing it to be written to CWD. Fixed by placing the state file inside the output directory which is always writable.
+
+**Root Cause:**
+```go
+// Before: just filename, written to CWD
+config.StateFile = folderName + "_state.json"
+```
+
+**Fix:**
+```go
+// After: inside output directory
+config.StateFile = filepath.Join(config.OutputDir, folderName+"_state.json")
+```
+
+**Files Modified:**
+- `internal/crawler/config.go` (SetDefaultStateFile function)
+- `internal/crawler/crawler_test.go` (added TestSetDefaultStateFile)
+
+**Example:**
+| Before | After |
+|--------|-------|
+| `example.com_state.json` (in CWD) | `backup/example.com/example.com_state.json` |

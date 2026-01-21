@@ -754,6 +754,47 @@ func TestValidateConfig(t *testing.T) {
 	}
 }
 
+func TestSetDefaultStateFile(t *testing.T) {
+	tests := []struct {
+		name          string
+		outputDir     string
+		existingState string
+		expectedState string
+	}{
+		{
+			name:          "state file placed inside output directory",
+			outputDir:     "backup/example.com",
+			existingState: "",
+			expectedState: filepath.Join("backup/example.com", "example.com_state.json"),
+		},
+		{
+			name:          "state file with nested output directory",
+			outputDir:     "backup/docs.example.com_api",
+			existingState: "",
+			expectedState: filepath.Join("backup/docs.example.com_api", "docs.example.com_api_state.json"),
+		},
+		{
+			name:          "existing state file is not overwritten",
+			outputDir:     "backup/example.com",
+			existingState: "/custom/path/my_state.json",
+			expectedState: "/custom/path/my_state.json",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := &Config{
+				OutputDir: tt.outputDir,
+				StateFile: tt.existingState,
+			}
+			SetDefaultStateFile(config)
+			if config.StateFile != tt.expectedState {
+				t.Errorf("SetDefaultStateFile() = %q, want %q", config.StateFile, tt.expectedState)
+			}
+		})
+	}
+}
+
 func TestCrawlerMetrics(t *testing.T) {
 	m := NewCrawlerMetrics()
 

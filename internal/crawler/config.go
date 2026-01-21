@@ -216,15 +216,17 @@ func SetDefaultOutputDir(config *Config) error {
 	return nil
 }
 
-// SetDefaultStateFile sets the state file name if not provided
+// SetDefaultStateFile sets the state file path if not provided
+// The state file is placed inside the output directory to ensure it's always writable
+// (avoids "read-only file system" errors when running as a packaged macOS app)
 func SetDefaultStateFile(config *Config) {
 	if config.StateFile != "" {
 		return
 	}
 
-	// Use just the folder name (without backup path) for state file
+	// Use the folder name for the state file, placed inside the output directory
 	folderName := filepath.Base(config.OutputDir)
-	config.StateFile = folderName + "_state.json"
+	config.StateFile = filepath.Join(config.OutputDir, folderName+"_state.json")
 }
 
 // EnsureOutputDir creates the output directory if it doesn't exist
