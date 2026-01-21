@@ -246,3 +246,34 @@ The `disableReadability` field existed in the backend (`CrawlConfig` and `Preset
 **Files Modified:**
 - `frontend/src/lib/stores/crawler.js` (line 49)
 - `frontend/src/lib/components/ConfigForm.svelte` (lines 62, 419-421)
+
+## 2026-01-20: Add Configurable Page Load Wait Time for Browser Mode
+
+Add a new `PageLoadWait` configuration option (duration) that allows users to specify how long to wait after page navigation for dynamic content to load in browser mode.
+
+### Summary
+The browser fetcher had a hardcoded 500ms sleep after page navigation. This change makes it configurable so users can adjust it for slow-loading pages or heavy JavaScript sites.
+
+**Core Implementation:**
+- Added `PageLoadWait time.Duration` field to `Config` struct
+- Added `pageLoadWait time.Duration` field to `BrowserFetcher` struct
+- Created `NewBrowserFetcherWithPageLoadWait()` constructor accepting page load wait parameter
+- Updated `NewBrowserFetcherWithAntiBot()` to call new constructor with default 500ms
+- Replaced hardcoded `500*time.Millisecond` in `browser.go` (lines 182 and 315) with `f.pageLoadWait`
+
+**Interface Support:**
+- CLI: `--page-load-wait` flag (default: "500ms")
+- GUI: "Page Load Wait" input field (visible only when fetch mode is "browser")
+- API: `pageLoadWait` field in `CrawlRequest`
+- Presets: `pageLoadWait` saved/loaded with configuration presets
+
+**Files Modified:**
+- `internal/crawler/config.go` (PageLoadWait field)
+- `internal/crawler/browser.go` (pageLoadWait field, new constructor, configurable sleep)
+- `internal/crawler/crawler.go` (use NewBrowserFetcherWithPageLoadWait)
+- `cmd/cli/main.go` (--page-load-wait flag)
+- `pkg/app/app.go` (CrawlConfig and PresetConfig fields, parsing)
+- `frontend/src/lib/stores/crawler.js` (pageLoadWait default)
+- `frontend/src/lib/components/ConfigForm.svelte` (tooltip and input field)
+- `internal/api/types.go` (pageLoadWait field in CrawlRequest)
+- `internal/api/jobs.go` (pageLoadWait parsing in translateConfig)

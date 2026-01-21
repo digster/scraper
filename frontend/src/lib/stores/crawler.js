@@ -50,6 +50,7 @@ const defaultConfig = {
     fetchMode: 'http',
     headless: true,
     waitForLogin: false,
+    pageLoadWait: '500ms',
     // Pagination settings (browser mode only)
     enablePagination: false,
     paginationSelector: '',

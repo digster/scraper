@@ -38,6 +38,7 @@ type CrawlRequest struct {
 	FetchMode          string            `json:"fetchMode,omitempty"`
 	Headless           *bool             `json:"headless,omitempty"`
 	WaitForLogin       bool              `json:"waitForLogin,omitempty"`
+	PageLoadWait       string            `json:"pageLoadWait,omitempty"`
 	Pagination         *PaginationConfig `json:"pagination,omitempty"`
 	AntiBot            *AntiBotConfig    `json:"antiBot,omitempty"`
 	// URL normalization settings

@@ -18,6 +18,7 @@ func main() {
 	var linkSelectors string
 	var fetchMode string
 	var paginationWait string
+	var pageLoadWait string
 
 	flag.StringVar(&config.URL, "url", "", "Starting URL to scrape")
 	flag.BoolVar(&config.Concurrent, "concurrent", false, "Run in concurrent mode")
@@ -38,6 +39,7 @@ func main() {
 	flag.StringVar(&fetchMode, "fetch-mode", "http", "Fetch mode: 'http' for standard HTTP client, 'browser' for real browser via chromedp")
 	flag.BoolVar(&config.Headless, "headless", true, "Run browser in headless mode (only applies when fetch-mode=browser)")
 	flag.BoolVar(&config.WaitForLogin, "wait-login", false, "Wait for manual login before crawling (only applies when fetch-mode=browser and headless=false)")
+	flag.StringVar(&pageLoadWait, "page-load-wait", "500ms", "Time to wait after page load for dynamic content (only applies when fetch-mode=browser)")
 
 	// Pagination flags (only apply when fetch-mode=browser)
 	flag.BoolVar(&config.Pagination.Enable, "enable-pagination", false, "Enable click-based pagination (requires fetch-mode=browser)")
@@ -74,6 +76,15 @@ func main() {
 
 	// Set fetch mode
 	config.FetchMode = crawler.FetchMode(fetchMode)
+
+	// Parse page load wait duration (browser mode)
+	if pageLoadWait != "" {
+		waitDuration, err := time.ParseDuration(pageLoadWait)
+		if err != nil {
+			waitDuration = 500 * time.Millisecond
+		}
+		config.PageLoadWait = waitDuration
+	}
 
 	// Parse pagination wait duration
 	if config.Pagination.Enable {

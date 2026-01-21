@@ -28,6 +28,7 @@
     ignoreRobots: "Bypass robots.txt rules that restrict crawling. Use responsibly and only when permitted.",
     headless: "Run browser without visible window. Disable for debugging or manual CAPTCHA solving.",
     waitForLogin: "Pause before crawling to allow manual login. Browser will open to the URL, letting you log in before the crawl begins.",
+    pageLoadWait: "Time to wait after page navigation for dynamic content to load (e.g., 500ms, 1s, 2s). Increase for slow-loading pages with JavaScript-rendered content.",
     prefixFilter: "Only crawl URLs that start with this prefix. Leave empty to crawl any discovered URL.",
     excludeExtensions: "Skip downloading files with these extensions (comma-separated). Useful for excluding assets like images or scripts.",
     linkSelectors: "CSS selectors to filter which links to follow. Default follows all links with href attribute.",
@@ -207,6 +208,20 @@
   </div>
 
   {#if config.fetchMode === 'browser'}
+    <div class="form-group page-load-wait-group">
+      <label for="pageLoadWait">
+        Page Load Wait
+        <span class="info-icon" title={tooltips.pageLoadWait}>i</span>
+      </label>
+      <input
+        type="text"
+        id="pageLoadWait"
+        bind:value={config.pageLoadWait}
+        placeholder="500ms"
+        disabled={status !== 'stopped'}
+      />
+    </div>
+
     <div class="pagination-section">
       <h3>Click-Based Pagination</h3>
       <label class="pagination-enable">
@@ -757,6 +772,11 @@
     margin-left: 2px;
     vertical-align: middle;
     transform: none;
+  }
+
+  /* Page load wait styling */
+  .page-load-wait-group {
+    margin: 12px 0;
   }
 
   /* Pagination section styles */

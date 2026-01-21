@@ -81,6 +81,7 @@ type Config struct {
 	WaitForLogin       bool
 	AntiBot            AntiBotConfig
 	Pagination         PaginationConfig
+	PageLoadWait       time.Duration // Time to wait after page load for dynamic content (browser mode only)
 	// URL normalization options for better duplicate detection
 	NormalizeURLs  bool // Enable URL normalization (default: true)
 	LowercasePaths bool // Lowercase URL paths during normalization (default: false)

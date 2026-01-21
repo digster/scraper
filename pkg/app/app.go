@@ -59,6 +59,7 @@ type CrawlConfig struct {
 	FetchMode          string `json:"fetchMode"`
 	Headless           bool   `json:"headless"`
 	WaitForLogin       bool   `json:"waitForLogin"`
+	PageLoadWait       string `json:"pageLoadWait"`
 	// Pagination settings
 	EnablePagination          bool   `json:"enablePagination"`
 	PaginationSelector        string `json:"paginationSelector"`
@@ -105,6 +106,16 @@ func (a *App) StartCrawl(cfg CrawlConfig) error {
 	fetchMode := crawler.FetchModeHTTP
 	if cfg.FetchMode == "browser" {
 		fetchMode = crawler.FetchModeBrowser
+	}
+
+	// Parse page load wait duration
+	var pageLoadWait time.Duration
+	if cfg.PageLoadWait != "" {
+		waitDuration, err := time.ParseDuration(cfg.PageLoadWait)
+		if err != nil {
+			waitDuration = 500 * time.Millisecond // Default to 500ms
+		}
+		pageLoadWait = waitDuration
 	}
 
 	// Build anti-bot config
@@ -164,6 +175,7 @@ func (a *App) StartCrawl(cfg CrawlConfig) error {
 		FetchMode:          fetchMode,
 		Headless:           cfg.Headless,
 		WaitForLogin:       cfg.WaitForLogin,
+		PageLoadWait:       pageLoadWait,
 		AntiBot:            antiBotConfig,
 		Pagination:         paginationConfig,
 		NormalizeURLs:      cfg.NormalizeURLs,
@@ -440,6 +452,7 @@ type PresetConfig struct {
 	FetchMode    string `json:"fetchMode"`
 	Headless     bool   `json:"headless"`
 	WaitForLogin bool   `json:"waitForLogin"`
+	PageLoadWait string `json:"pageLoadWait"`
 	// Pagination settings
 	EnablePagination          bool   `json:"enablePagination"`
 	PaginationSelector        string `json:"paginationSelector"`

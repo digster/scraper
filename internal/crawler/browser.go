@@ -16,16 +16,17 @@ import (
 
 // BrowserFetcher implements Fetcher using a real browser via chromedp
 type BrowserFetcher struct {
-	allocCtx    context.Context
-	allocCancel context.CancelFunc
-	browserCtx  context.Context
-	cancelFunc  context.CancelFunc
-	headless    bool
-	userAgent   string
-	antiBot     AntiBotConfig
-	userAgents  []string
-	uaIndex     int
-	uaMu        sync.Mutex
+	allocCtx     context.Context
+	allocCancel  context.CancelFunc
+	browserCtx   context.Context
+	cancelFunc   context.CancelFunc
+	headless     bool
+	userAgent    string
+	antiBot      AntiBotConfig
+	userAgents   []string
+	uaIndex      int
+	uaMu         sync.Mutex
+	pageLoadWait time.Duration
 }
 
 // NewBrowserFetcher creates a new browser-based fetcher
@@ -40,8 +41,18 @@ func NewBrowserFetcherWithUserAgent(headless bool, userAgent string) (*BrowserFe
 
 // NewBrowserFetcherWithAntiBot creates a new browser-based fetcher with anti-bot configuration
 func NewBrowserFetcherWithAntiBot(headless bool, userAgent string, antiBot AntiBotConfig) (*BrowserFetcher, error) {
+	return NewBrowserFetcherWithPageLoadWait(headless, userAgent, antiBot, 500*time.Millisecond)
+}
+
+// NewBrowserFetcherWithPageLoadWait creates a new browser-based fetcher with configurable page load wait
+func NewBrowserFetcherWithPageLoadWait(headless bool, userAgent string, antiBot AntiBotConfig, pageLoadWait time.Duration) (*BrowserFetcher, error) {
 	if userAgent == "" {
 		userAgent = DefaultUserAgent
+	}
+
+	// Apply default if zero
+	if pageLoadWait == 0 {
+		pageLoadWait = 500 * time.Millisecond
 	}
 
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
@@ -96,15 +107,16 @@ func NewBrowserFetcherWithAntiBot(headless bool, userAgent string, antiBot AntiB
 	}
 
 	return &BrowserFetcher{
-		allocCtx:    allocCtx,
-		allocCancel: allocCancel,
-		browserCtx:  browserCtx,
-		cancelFunc:  cancelFunc,
-		headless:    headless,
-		userAgent:   userAgent,
-		antiBot:     antiBot,
-		userAgents:  userAgentPool,
-		uaIndex:     0,
+		allocCtx:     allocCtx,
+		allocCancel:  allocCancel,
+		browserCtx:   browserCtx,
+		cancelFunc:   cancelFunc,
+		headless:     headless,
+		userAgent:    userAgent,
+		antiBot:      antiBot,
+		userAgents:   userAgentPool,
+		uaIndex:      0,
+		pageLoadWait: pageLoadWait,
 	}, nil
 }
 
@@ -179,7 +191,7 @@ func (f *BrowserFetcher) Fetch(rawURL string, userAgent string) (*FetchResult, e
 		network.Enable(),
 		chromedp.Navigate(rawURL),
 		chromedp.WaitReady("body", chromedp.ByQuery),
-		chromedp.Sleep(500*time.Millisecond), // Small delay for dynamic content
+		chromedp.Sleep(f.pageLoadWait), // Configurable delay for dynamic content
 		chromedp.Location(&finalURL),
 		chromedp.OuterHTML("html", &html, chromedp.ByQuery),
 	)
@@ -312,7 +324,7 @@ func (f *BrowserFetcher) FetchWithPagination(rawURL string, userAgent string, co
 		network.Enable(),
 		chromedp.Navigate(rawURL),
 		chromedp.WaitReady("body", chromedp.ByQuery),
-		chromedp.Sleep(500*time.Millisecond),
+		chromedp.Sleep(f.pageLoadWait),
 	)
 
 	if err := chromedp.Run(tabCtx, actions...); err != nil {

@@ -453,6 +453,16 @@ func translateConfig(req *CrawlRequest) (*crawler.Config, error) {
 		headless = *req.Headless
 	}
 
+	// Parse page load wait duration
+	var pageLoadWait time.Duration
+	if req.PageLoadWait != "" {
+		waitDuration, err := time.ParseDuration(req.PageLoadWait)
+		if err != nil {
+			return nil, APIError{Code: 400, Message: "invalid pageLoadWait format", Details: err.Error()}
+		}
+		pageLoadWait = waitDuration
+	}
+
 	// Build anti-bot config
 	var antiBotConfig crawler.AntiBotConfig
 	if req.AntiBot != nil {
@@ -499,6 +509,7 @@ func translateConfig(req *CrawlRequest) (*crawler.Config, error) {
 		FetchMode:          fetchMode,
 		Headless:           headless,
 		WaitForLogin:       req.WaitForLogin,
+		PageLoadWait:       pageLoadWait,
 		AntiBot:            antiBotConfig,
 		NormalizeURLs:      normalizeURLs,
 		LowercasePaths:     req.LowercasePaths,
