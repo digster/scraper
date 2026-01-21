@@ -64,7 +64,9 @@ scraper/
 │   ├── cli/main.go            # CLI entry point
 │   ├── api/main.go            # API server entry point
 │   └── mcp/main.go            # MCP server entry point
-├── pkg/app/app.go             # Wails app bridge (Go ↔ Frontend)
+├── pkg/app/
+│   ├── app.go                 # Wails app bridge (Go ↔ Frontend)
+│   └── presets_test.go        # Preset unit tests
 ├── internal/
 │   ├── crawler/               # Core crawler package
 │   │   ├── crawler.go         # Main orchestrator
@@ -97,6 +99,7 @@ scraper/
 │   │   ├── App.svelte         # Main container
 │   │   └── lib/components/
 │   │       ├── ConfigForm.svelte       # Configuration UI
+│   │       ├── PresetSelector.svelte   # Save/load configuration presets
 │   │       ├── ProgressDashboard.svelte # Real-time metrics
 │   │       ├── LogViewer.svelte        # Log output display
 │   │       ├── ControlButtons.svelte   # Start/Pause/Stop controls
@@ -256,6 +259,7 @@ The Wails framework bridges Go and Svelte:
 - `GetMetrics()` - Get real-time statistics
 - `ConfirmLogin()` - Signal login completion
 - `BrowseDirectory()` / `BrowseFile()` - Native dialogs
+- `ListPresets()` / `SavePreset(name, config)` / `LoadPreset(name)` / `DeletePreset(name)` - Preset management
 
 ## API Server (`internal/api/`)
 
@@ -526,3 +530,5 @@ go test -v ./internal/crawler/...
 4. **Depth-First vs Breadth-First**: Uses BFS (queue-based) to prioritize shallow pages first, which typically captures site structure before diving deep.
 
 5. **Readability Extraction**: Separates raw HTML (for completeness) from extracted content (for usability), letting users choose based on their needs.
+
+6. **Configuration Presets**: Stored as individual JSON files in `~/.config/scraper/presets/` (cross-platform via `os.UserConfigDir()`). Presets save all settings except `outputDir` and `stateFile` (job-specific paths), making them reusable across different crawl jobs.

@@ -138,3 +138,41 @@ Implemented click-based pagination for browser mode with full parity across all 
 - `frontend/src/lib/components/ConfigForm.svelte` (pagination UI section)
 - `ARCHITECTURE.md` (pagination documentation)
 - `README.md` (pagination usage examples)
+
+## 2026-01-20: Implement Save/Load Site Settings (Presets)
+
+Add the ability to save and load form configuration presets so users can reuse settings for specific sites.
+
+### Summary
+Implemented a presets system for saving and loading crawler configurations in the GUI:
+
+**Backend (Go):**
+- `PresetConfig` struct with all saveable fields (excludes `outputDir`, `stateFile`)
+- `PresetInfo` struct for lightweight preset listing
+- 5 new methods: `GetPresetsDir()`, `ListPresets()`, `SavePreset()`, `LoadPreset()`, `DeletePreset()`
+- Presets stored as individual JSON files in `~/.config/scraper/presets/`
+- Security: Regex validation prevents path traversal attacks in preset names
+
+**Frontend (Svelte):**
+- New `presetsStore` for managing preset state and backend calls
+- New `PresetSelector.svelte` component with dropdown, Load/Save/Delete buttons
+- Modified `configStore` with `getPresetConfig()` and `applyPreset()` helpers
+- Modal dialogs for save (name input) and delete (confirmation)
+
+**Files Created:**
+- `pkg/app/presets_test.go` (unit tests for preset operations)
+- `frontend/src/lib/stores/presets.js` (presets store)
+- `frontend/src/lib/components/PresetSelector.svelte` (UI component)
+
+**Files Modified:**
+- `pkg/app/app.go` (preset management methods)
+- `frontend/src/lib/stores/crawler.js` (helper methods, refactored to use defaultConfig)
+- `frontend/src/lib/components/ConfigForm.svelte` (integrated PresetSelector)
+- `ARCHITECTURE.md` (documented presets feature)
+- `README.md` (documented presets feature)
+
+**Design Decisions:**
+- Storage: `~/.config/scraper/presets/` via `os.UserConfigDir()` (cross-platform)
+- Format: Individual JSON files (human-readable, easy to backup/share)
+- Fields saved: All except `outputDir` and `stateFile` (job-specific)
+- Name validation: `^[a-zA-Z0-9][a-zA-Z0-9_-]*$` (security)

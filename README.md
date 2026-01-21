@@ -37,10 +37,21 @@ Ask any clarifying questions if needed.
 The desktop GUI provides a user-friendly interface with:
 
 - **Configuration Panel**: All CLI options available as form inputs
+- **Configuration Presets**: Save and load form settings for different sites
 - **Real-time Progress Dashboard**: Progress bar, metrics, and current URL display
 - **Control Buttons**: Start, Pause/Resume, and Stop controls
 - **Live Log Viewer**: Color-coded, scrollable log output
 - **Native Dialogs**: File and directory pickers for output and state files
+
+### Configuration Presets
+
+Save your frequently-used settings as presets and quickly load them for future crawls:
+
+- **Save**: Click "Save" to save current settings with a custom name
+- **Load**: Select a preset from the dropdown and click "Load" to apply it
+- **Delete**: Remove presets you no longer need
+
+Presets save all configuration options except output directory and state file (job-specific paths). Stored in `~/.config/scraper/presets/` as human-readable JSON files.
 
 ## API Mode
 

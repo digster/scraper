@@ -1,5 +1,6 @@
 <script>
   import { configStore, crawlerStore } from '../stores/crawler.js';
+  import PresetSelector from './PresetSelector.svelte';
 
   export let showAdvanced = false;
 
@@ -85,6 +86,8 @@
 
 <div class="config-form">
   <h2>Configuration</h2>
+
+  <PresetSelector />
 
   <div class="form-group">
     <label for="url">URL *</label>

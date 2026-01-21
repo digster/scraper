@@ -2,7 +2,12 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
 	"sync"
 	"time"
 
@@ -406,4 +411,203 @@ func trimString(s string) string {
 		end--
 	}
 	return s[start:end]
+}
+
+// PresetConfig contains all saveable configuration fields (excludes outputDir, stateFile)
+type PresetConfig struct {
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"createdAt"`
+	// Core settings
+	URL             string `json:"url"`
+	Concurrent      bool   `json:"concurrent"`
+	Delay           string `json:"delay"`
+	MaxDepth        int    `json:"maxDepth"`
+	PrefixFilterURL string `json:"prefixFilter"`
+	// Content settings
+	ExcludeExtensions  string `json:"excludeExtensions"`
+	LinkSelectors      string `json:"linkSelectors"`
+	Verbose            bool   `json:"verbose"`
+	UserAgent          string `json:"userAgent"`
+	IgnoreRobots       bool   `json:"ignoreRobots"`
+	MinContentLength   int    `json:"minContent"`
+	DisableReadability bool   `json:"disableReadability"`
+	// Browser settings
+	FetchMode    string `json:"fetchMode"`
+	Headless     bool   `json:"headless"`
+	WaitForLogin bool   `json:"waitForLogin"`
+	// Pagination settings
+	EnablePagination          bool   `json:"enablePagination"`
+	PaginationSelector        string `json:"paginationSelector"`
+	MaxPaginationClicks       int    `json:"maxPaginationClicks"`
+	PaginationWait            string `json:"paginationWait"`
+	PaginationWaitSelector    string `json:"paginationWaitSelector"`
+	PaginationStopOnDuplicate bool   `json:"paginationStopOnDuplicate"`
+	// Anti-bot settings
+	HideWebdriver        bool   `json:"hideWebdriver"`
+	SpoofPlugins         bool   `json:"spoofPlugins"`
+	SpoofLanguages       bool   `json:"spoofLanguages"`
+	SpoofWebGL           bool   `json:"spoofWebGL"`
+	AddCanvasNoise       bool   `json:"addCanvasNoise"`
+	NaturalMouseMovement bool   `json:"naturalMouseMovement"`
+	RandomTypingDelays   bool   `json:"randomTypingDelays"`
+	NaturalScrolling     bool   `json:"naturalScrolling"`
+	RandomActionDelays   bool   `json:"randomActionDelays"`
+	RandomClickOffset    bool   `json:"randomClickOffset"`
+	RotateUserAgent      bool   `json:"rotateUserAgent"`
+	RandomViewport       bool   `json:"randomViewport"`
+	MatchTimezone        bool   `json:"matchTimezone"`
+	Timezone             string `json:"timezone"`
+}
+
+// PresetInfo contains lightweight metadata for listing presets
+type PresetInfo struct {
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+// validPresetName validates preset names (alphanumeric, dashes, underscores only)
+var validPresetName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]*$`)
+
+// GetPresetsDir returns the presets directory path, creating it if needed
+func (a *App) GetPresetsDir() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get user config dir: %w", err)
+	}
+
+	presetsDir := filepath.Join(configDir, "scraper", "presets")
+	if err := os.MkdirAll(presetsDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create presets dir: %w", err)
+	}
+
+	return presetsDir, nil
+}
+
+// ListPresets returns a list of all available presets
+func (a *App) ListPresets() ([]PresetInfo, error) {
+	presetsDir, err := a.GetPresetsDir()
+	if err != nil {
+		return nil, err
+	}
+
+	entries, err := os.ReadDir(presetsDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read presets dir: %w", err)
+	}
+
+	presets := make([]PresetInfo, 0)
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+			continue
+		}
+
+		name := entry.Name()[:len(entry.Name())-5] // Remove .json extension
+
+		// Read the preset to get CreatedAt
+		preset, err := a.LoadPreset(name)
+		if err != nil {
+			continue // Skip invalid presets
+		}
+
+		presets = append(presets, PresetInfo{
+			Name:      name,
+			CreatedAt: preset.CreatedAt,
+		})
+	}
+
+	// Sort by creation time (newest first)
+	sort.Slice(presets, func(i, j int) bool {
+		return presets[i].CreatedAt.After(presets[j].CreatedAt)
+	})
+
+	return presets, nil
+}
+
+// SavePreset saves a configuration preset with the given name
+func (a *App) SavePreset(name string, config PresetConfig) error {
+	// Validate preset name
+	if name == "" {
+		return fmt.Errorf("preset name cannot be empty")
+	}
+	if len(name) > 50 {
+		return fmt.Errorf("preset name too long (max 50 characters)")
+	}
+	if !validPresetName.MatchString(name) {
+		return fmt.Errorf("preset name can only contain letters, numbers, dashes, and underscores")
+	}
+
+	presetsDir, err := a.GetPresetsDir()
+	if err != nil {
+		return err
+	}
+
+	// Set metadata
+	config.Name = name
+	config.CreatedAt = time.Now()
+
+	// Marshal to JSON with indentation for readability
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal preset: %w", err)
+	}
+
+	// Write to file
+	filePath := filepath.Join(presetsDir, name+".json")
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write preset file: %w", err)
+	}
+
+	return nil
+}
+
+// LoadPreset loads a configuration preset by name
+func (a *App) LoadPreset(name string) (*PresetConfig, error) {
+	// Validate name to prevent path traversal
+	if !validPresetName.MatchString(name) {
+		return nil, fmt.Errorf("invalid preset name")
+	}
+
+	presetsDir, err := a.GetPresetsDir()
+	if err != nil {
+		return nil, err
+	}
+
+	filePath := filepath.Join(presetsDir, name+".json")
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("preset '%s' not found", name)
+		}
+		return nil, fmt.Errorf("failed to read preset file: %w", err)
+	}
+
+	var config PresetConfig
+	if err := json.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse preset file: %w", err)
+	}
+
+	return &config, nil
+}
+
+// DeletePreset deletes a preset by name
+func (a *App) DeletePreset(name string) error {
+	// Validate name to prevent path traversal
+	if !validPresetName.MatchString(name) {
+		return fmt.Errorf("invalid preset name")
+	}
+
+	presetsDir, err := a.GetPresetsDir()
+	if err != nil {
+		return err
+	}
+
+	filePath := filepath.Join(presetsDir, name+".json")
+	if err := os.Remove(filePath); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("preset '%s' not found", name)
+		}
+		return fmt.Errorf("failed to delete preset: %w", err)
+	}
+
+	return nil
 }
