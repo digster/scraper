@@ -305,3 +305,44 @@ config.StateFile = filepath.Join(config.OutputDir, folderName+"_state.json")
 | Before | After |
 |--------|-------|
 | `example.com_state.json` (in CWD) | `backup/example.com/example.com_state.json` |
+
+## 2026-01-21: Update MCP Tools, HTTP API, CLI, and Skill File for Recent Features
+
+Ensure all interfaces (MCP, HTTP API, CLI, skill documentation) have parity for recently added features:
+- `pageLoadWait` - Configurable wait time after page load (browser mode)
+- `disableReadability` - Skip readability content extraction
+- `normalizeUrls` / `lowercasePaths` - URL normalization settings
+- `pagination` - Click-based pagination (browser mode)
+
+### Summary
+Updated MCP tools to support all recently added features that were missing from the MCP interface:
+
+**MCP server.go Changes:**
+- Added `pageLoadWait` string parameter
+- Added `disableReadability` boolean parameter
+- Added `pagination` object parameter
+- Added `excludeExtensions` array parameter
+- Added `linkSelectors` array parameter
+
+**MCP tools.go Changes:**
+- Added parameter handlers for `pageLoadWait`, `disableReadability`, `pagination`, `excludeExtensions`, `linkSelectors`
+- Added `parsePaginationConfig()` helper function to parse pagination object
+- Added `toStringSlice()` helper function to convert interface arrays to string slices
+
+**MCP types.go Changes:**
+- Added `PageLoadWait`, `DisableReadability`, `NormalizeURLs`, `LowercasePaths` fields to `StartCrawlInput`
+
+**docs/skill.md Changes:**
+- Updated MCP optional parameters table with all new parameters
+- Added Pagination Object documentation section
+- Added "Crawl with Pagination" workflow example
+- Added URL Normalization CLI flags section
+- Added Pagination CLI flags section
+- Added CLI examples for URL normalization, pagination, and page load wait
+- Updated HTTP API JSON example with new fields
+
+### Files Modified
+- `internal/mcp/server.go` (new tool parameter definitions)
+- `internal/mcp/tools.go` (parameter handlers and helper functions)
+- `internal/mcp/types.go` (updated type definitions)
+- `docs/skill.md` (comprehensive documentation updates)

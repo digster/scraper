@@ -72,9 +72,14 @@ Start a new crawl job. Returns immediately with a job ID.
 | `fetchMode` | string | "http" | "http" for fast requests, "browser" for JavaScript |
 | `headless` | bool | true | Run browser in headless mode |
 | `waitForLogin` | bool | false | Wait for manual login before crawling |
+| `pageLoadWait` | string | - | Time to wait after page load (browser mode, e.g., "500ms", "2s") |
 | `userAgent` | string | - | Custom User-Agent string |
 | `ignoreRobots` | bool | false | Ignore robots.txt restrictions |
 | `minContent` | int | 100 | Minimum content length to save a page |
+| `disableReadability` | bool | false | Disable readability extraction and save raw HTML |
+| `normalizeUrls` | bool | true | Enable URL normalization for better duplicate detection |
+| `lowercasePaths` | bool | false | Lowercase URL paths during normalization (use with caution) |
+| `pagination` | object | - | Click-based pagination settings (see below) |
 | `antiBot` | object | - | Anti-bot detection settings (see below) |
 
 #### scraper_list
@@ -161,6 +166,33 @@ scraper_start with:
 3. scraper_stop if needed, or wait for completion
 ```
 
+#### Crawl with Pagination
+```
+scraper_start with:
+  url: "https://blog.example.com"
+  fetchMode: "browser"
+  pagination: {
+    enable: true,
+    selector: "a.next-page",
+    maxClicks: 20,
+    waitAfterClick: "2s",
+    stopOnDuplicate: true
+  }
+```
+
+### Pagination Object
+
+Click-based pagination for sites that load content via "Load More" buttons or pagination links.
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `enable` | bool | false | Enable click-based pagination |
+| `selector` | string | - | CSS selector for pagination element (e.g., `a.next`, `.load-more-btn`) |
+| `maxClicks` | int | 100 | Maximum pagination clicks per URL |
+| `waitAfterClick` | string | - | Time to wait after clicking (e.g., `2s`) |
+| `waitSelector` | string | - | CSS selector to wait for after click (optional) |
+| `stopOnDuplicate` | bool | true | Stop if duplicate content is detected |
+
 ---
 
 ## CLI Interface
@@ -213,6 +245,23 @@ go build -o scraper ./cmd/cli
 | `-fetch-mode` | http | 'http' for standard HTTP, 'browser' for chromedp |
 | `-headless` | true | Run browser in headless mode |
 | `-wait-login` | false | Wait for manual login before crawling |
+| `-page-load-wait` | 500ms | Time to wait after page load for dynamic content (e.g., '500ms', '2s') |
+
+#### URL Normalization
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-normalize-urls` | true | Enable URL normalization for better duplicate detection |
+| `-lowercase-paths` | false | Lowercase URL paths during normalization (use with caution) |
+
+#### Pagination (browser mode only)
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-enable-pagination` | false | Enable click-based pagination |
+| `-pagination-selector` | - | CSS selector for pagination element |
+| `-max-pagination-clicks` | 100 | Maximum pagination clicks per URL |
+| `-pagination-wait` | 2s | Time to wait after clicking pagination |
+| `-pagination-wait-selector` | - | CSS selector to wait for after click |
+| `-pagination-stop-duplicate` | true | Stop if duplicate content detected |
 
 #### Anti-Bot Bypass (browser mode only)
 
@@ -288,6 +337,28 @@ go build -o scraper ./cmd/cli
 ./scraper -url "https://docs.example.com" -metrics-json ./metrics.json
 ```
 
+**With URL normalization options:**
+```bash
+./scraper -url "https://docs.example.com" -normalize-urls -lowercase-paths=false
+```
+
+**Click-based pagination (browser mode):**
+```bash
+./scraper -url "https://blog.example.com" \
+  -fetch-mode browser \
+  -enable-pagination \
+  -pagination-selector "a.next-page" \
+  -max-pagination-clicks 20 \
+  -pagination-wait 2s
+```
+
+**Browser mode with custom page load wait:**
+```bash
+./scraper -url "https://spa.example.com" \
+  -fetch-mode browser \
+  -page-load-wait 3s
+```
+
 ---
 
 ## HTTP API Interface
@@ -349,9 +420,19 @@ go build -o scraper-api cmd/api/main.go
   "ignoreRobots": false,
   "minContent": 100,
   "disableReadability": false,
+  "normalizeUrls": true,
+  "lowercasePaths": false,
   "fetchMode": "http",
   "headless": true,
   "waitForLogin": false,
+  "pageLoadWait": "500ms",
+  "pagination": {
+    "enable": true,
+    "selector": "a.next-page",
+    "maxClicks": 20,
+    "waitAfterClick": "2s",
+    "stopOnDuplicate": true
+  },
   "antiBot": {
     "hideWebdriver": true,
     "spoofPlugins": true,

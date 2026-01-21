@@ -20,8 +20,12 @@ type StartCrawlInput struct {
 	MinContentLength  int              `json:"minContent,omitempty" jsonschema:"description=Minimum content length to save a page (default: 100)"`
 	ExcludeExtensions []string         `json:"excludeExtensions,omitempty" jsonschema:"description=File extensions to exclude (e.g. ['.pdf', '.zip'])"`
 	LinkSelectors     []string         `json:"linkSelectors,omitempty" jsonschema:"description=CSS selectors to find links (defaults to standard link tags)"`
-	Pagination        *PaginationInput `json:"pagination,omitempty" jsonschema:"description=Click-based pagination settings (browser mode only)"`
-	AntiBot           *AntiBotInput    `json:"antiBot,omitempty" jsonschema:"description=Anti-bot detection evasion settings (browser mode only)"`
+	Pagination         *PaginationInput `json:"pagination,omitempty" jsonschema:"description=Click-based pagination settings (browser mode only)"`
+	AntiBot            *AntiBotInput    `json:"antiBot,omitempty" jsonschema:"description=Anti-bot detection evasion settings (browser mode only)"`
+	PageLoadWait       string           `json:"pageLoadWait,omitempty" jsonschema:"description=Time to wait after page load for dynamic content (browser mode, e.g. '500ms' or '2s')"`
+	DisableReadability bool             `json:"disableReadability,omitempty" jsonschema:"description=Disable readability content extraction and save raw HTML"`
+	NormalizeURLs      *bool            `json:"normalizeUrls,omitempty" jsonschema:"description=Enable URL normalization for better duplicate detection (default: true)"`
+	LowercasePaths     bool             `json:"lowercasePaths,omitempty" jsonschema:"description=Lowercase URL paths during normalization (default: false, use with caution)"`
 }
 
 // PaginationInput configures click-based pagination for browser mode

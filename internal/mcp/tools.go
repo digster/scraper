@@ -73,6 +73,27 @@ func (s *Server) handleStart(ctx context.Context, req mcp.CallToolRequest) (*mcp
 		crawlReq.LowercasePaths = lowercasePaths
 	}
 
+	// Handle browser mode settings
+	if pageLoadWait, ok := args["pageLoadWait"].(string); ok {
+		crawlReq.PageLoadWait = pageLoadWait
+	}
+	if disableReadability, ok := args["disableReadability"].(bool); ok {
+		crawlReq.DisableReadability = disableReadability
+	}
+
+	// Handle pagination settings
+	if paginationRaw, ok := args["pagination"].(map[string]interface{}); ok {
+		crawlReq.Pagination = parsePaginationConfig(paginationRaw)
+	}
+
+	// Handle array parameters
+	if excludeExtRaw, ok := args["excludeExtensions"].([]interface{}); ok {
+		crawlReq.ExcludeExtensions = toStringSlice(excludeExtRaw)
+	}
+	if linkSelectorsRaw, ok := args["linkSelectors"].([]interface{}); ok {
+		crawlReq.LinkSelectors = toStringSlice(linkSelectorsRaw)
+	}
+
 	// Create job
 	job, err := s.jobManager.CreateJob(crawlReq)
 	if err != nil {
@@ -442,4 +463,41 @@ func resultJSON(v interface{}) (*mcp.CallToolResult, error) {
 		return mcp.NewToolResultError(fmt.Sprintf("failed to marshal result: %v", err)), nil
 	}
 	return mcp.NewToolResultText(string(data)), nil
+}
+
+// parsePaginationConfig parses pagination settings from a map
+func parsePaginationConfig(raw map[string]interface{}) *api.PaginationConfig {
+	config := &api.PaginationConfig{}
+
+	if v, ok := raw["enable"].(bool); ok {
+		config.Enable = v
+	}
+	if v, ok := raw["selector"].(string); ok {
+		config.Selector = v
+	}
+	if v, ok := raw["maxClicks"].(float64); ok {
+		config.MaxClicks = int(v)
+	}
+	if v, ok := raw["waitAfterClick"].(string); ok {
+		config.WaitAfterClick = v
+	}
+	if v, ok := raw["waitSelector"].(string); ok {
+		config.WaitSelector = v
+	}
+	if v, ok := raw["stopOnDuplicate"].(bool); ok {
+		config.StopOnDuplicate = v
+	}
+
+	return config
+}
+
+// toStringSlice converts an interface slice to a string slice
+func toStringSlice(raw []interface{}) []string {
+	result := make([]string, 0, len(raw))
+	for _, v := range raw {
+		if s, ok := v.(string); ok {
+			result = append(result, s)
+		}
+	}
+	return result
 }
