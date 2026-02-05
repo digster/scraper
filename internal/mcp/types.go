@@ -11,6 +11,8 @@ type StartCrawlInput struct {
 	Concurrent        bool             `json:"concurrent,omitempty" jsonschema:"description=Enable concurrent crawling for faster processing"`
 	Delay             string           `json:"delay,omitempty" jsonschema:"description=Delay between requests (e.g. '500ms' or '1s')"`
 	OutputDir         string           `json:"outputDir,omitempty" jsonschema:"description=Directory to save crawled content"`
+	StateFile         string           `json:"stateFile,omitempty" jsonschema:"description=Path to state file for resume functionality"`
+	Verbose           bool             `json:"verbose,omitempty" jsonschema:"description=Enable verbose debug output"`
 	PrefixFilter      string           `json:"prefixFilter,omitempty" jsonschema:"description=Only crawl URLs starting with this prefix"`
 	FetchMode         string           `json:"fetchMode,omitempty" jsonschema:"enum=http,enum=browser,description=Fetch mode: 'http' for fast requests or 'browser' for JavaScript-rendered pages"`
 	Headless          *bool            `json:"headless,omitempty" jsonschema:"description=Run browser in headless mode (default: true)"`

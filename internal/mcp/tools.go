@@ -38,6 +38,12 @@ func (s *Server) handleStart(ctx context.Context, req mcp.CallToolRequest) (*mcp
 	if outputDir, ok := args["outputDir"].(string); ok {
 		crawlReq.OutputDir = outputDir
 	}
+	if stateFile, ok := args["stateFile"].(string); ok {
+		crawlReq.StateFile = stateFile
+	}
+	if verbose, ok := args["verbose"].(bool); ok {
+		crawlReq.Verbose = verbose
+	}
 	if prefixFilter, ok := args["prefixFilter"].(string); ok {
 		crawlReq.PrefixFilterURL = prefixFilter
 	}

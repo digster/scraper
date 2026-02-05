@@ -66,6 +66,8 @@ Start a new crawl job. Returns immediately with a job ID.
 | `concurrent` | bool | false | Enable parallel crawling |
 | `delay` | string | "1s" | Delay between requests (e.g., "500ms", "1s") |
 | `outputDir` | string | auto | Directory to save crawled content |
+| `stateFile` | string | auto | Path to state file for resume functionality |
+| `verbose` | bool | false | Enable verbose debug output |
 | `prefixFilter` | string | - | Only crawl URLs starting with this prefix |
 | `excludeExtensions` | []string | - | File extensions to exclude (e.g., [".pdf", ".zip"]) |
 | `linkSelectors` | []string | - | CSS selectors to find links |
