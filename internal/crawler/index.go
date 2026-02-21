@@ -37,12 +37,20 @@ type IndexData struct {
 
 // metaFileData represents the structure of .meta.json files
 type metaFileData struct {
-	URL                   string `json:"url"`
-	Timestamp             int64  `json:"timestamp"`
-	Size                  int    `json:"size"`
-	ContentFile           string `json:"content_file"`
-	ContentSize           int    `json:"content_size"`
-	ReadabilityExtracted  bool   `json:"readability_extracted"`
+	URL                  string `json:"url"`
+	Timestamp            int64  `json:"timestamp"`
+	Size                 int    `json:"size"`
+	ContentFile          string `json:"content_file"`
+	ContentSize          int    `json:"content_size"`
+	ContentExtracted     bool   `json:"content_extracted"`
+	ReadabilityExtracted *bool  `json:"readability_extracted,omitempty"` // Backward compat for old .meta.json files
+	// Trafilatura metadata
+	Title       string `json:"title,omitempty"`
+	Author      string `json:"author,omitempty"`
+	Date        string `json:"date,omitempty"`
+	Language    string `json:"language,omitempty"`
+	Description string `json:"description,omitempty"`
+	Sitename    string `json:"sitename,omitempty"`
 }
 
 // GenerateIndex creates an _index.html file in the output directory
@@ -151,7 +159,7 @@ func loadPageEntry(outputDir, metaPath string) (PageEntry, error) {
 		Timestamp:   time.Unix(meta.Timestamp, 0),
 		Size:        int64(meta.Size),
 		ContentSize: int64(meta.ContentSize),
-		HasContent:  meta.ReadabilityExtracted && meta.ContentFile != "",
+		HasContent:  (meta.ContentExtracted || (meta.ReadabilityExtracted != nil && *meta.ReadabilityExtracted)) && meta.ContentFile != "",
 	}, nil
 }
 

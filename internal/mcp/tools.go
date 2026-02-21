@@ -83,6 +83,9 @@ func (s *Server) handleStart(ctx context.Context, req mcp.CallToolRequest) (*mcp
 	if pageLoadWait, ok := args["pageLoadWait"].(string); ok {
 		crawlReq.PageLoadWait = pageLoadWait
 	}
+	if disableContentExtraction, ok := args["disableContentExtraction"].(bool); ok {
+		crawlReq.DisableContentExtraction = disableContentExtraction
+	}
 	if disableReadability, ok := args["disableReadability"].(bool); ok {
 		crawlReq.DisableReadability = disableReadability
 	}

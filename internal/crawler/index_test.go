@@ -133,7 +133,7 @@ func TestLoadPageEntry(t *testing.T) {
 		Size:                 1024,
 		ContentFile:          "page.content.html",
 		ContentSize:          512,
-		ReadabilityExtracted: true,
+		ContentExtracted: true,
 	}
 
 	metaJSON, _ := json.Marshal(meta)
@@ -206,7 +206,7 @@ func TestGenerateIndex(t *testing.T) {
 			Size:                 len(p.content) + 13, // <html></html>
 			ContentFile:          p.filename + ".content.html",
 			ContentSize:          len(p.content) + 7, // <p></p>
-			ReadabilityExtracted: true,
+			ContentExtracted: true,
 		}
 		metaJSON, _ := json.Marshal(meta)
 		os.WriteFile(basePath+".meta.json", metaJSON, 0644)
@@ -286,7 +286,7 @@ func TestGenerateIndexWithMissingContentFile(t *testing.T) {
 		Size:                 1024,
 		ContentFile:          "nonexistent.content.html",
 		ContentSize:          0,
-		ReadabilityExtracted: false,
+		ContentExtracted: false,
 	}
 	metaJSON, _ := json.Marshal(meta)
 	os.WriteFile(filepath.Join(tmpDir, "page.meta.json"), metaJSON, 0644)

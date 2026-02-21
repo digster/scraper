@@ -23,7 +23,7 @@ Ask any clarifying questions if needed.
 - **Concurrent/Sequential Mode**: Choose between concurrent or sequential crawling
 - **Configurable Delays**: Set delays between fetches to be respectful to servers
 - **Content Validation**: Only saves pages with meaningful content (>100 characters of text)
-- **Readability Extraction**: Automatically extracts main article content using Mozilla's Readability algorithm
+- **Content Extraction**: Automatically extracts main article content using trafilatura (with go-readability and go-domdistiller as fallbacks)
 - **Resume Functionality**: Automatically resumes from where it left off if interrupted
 - **State Persistence**: Saves crawling state to JSON file for resumption
 - **Progress Display**: Real-time progress bar with statistics (pages/second, queue size, etc.)
@@ -296,7 +296,7 @@ Simply run the built application or use `wails dev` for development. All options
 - `-user-agent`: Custom User-Agent header for HTTP requests (default: WebScraper/1.0)
 - `-ignore-robots`: Ignore robots.txt rules (default: false)
 - `-min-content`: Minimum text content length (characters) for a page to be saved (default: 100)
-- `-no-readability`: Disable readability content extraction (enabled by default)
+- `-no-extract`: Disable content extraction via trafilatura (enabled by default)
 - `-progress`: Show progress bar and statistics (default: true)
 - `-metrics-json`: Output final metrics to JSON file (optional)
 - `-fetch-mode`: Fetch mode - 'http' for standard HTTP client, 'browser' for real Chrome browser (default: http)
@@ -350,15 +350,16 @@ Simply run the built application or use `wails dev` for development. All options
    - **With `-link-selectors`**: Only processes links matching the specified selectors
    - Examples: `a.internal` (links with class 'internal'), `.nav-link` (any element with class 'nav-link'), `#menu a` (links inside element with id 'menu')
 
-6. **Readability Extraction**: By default, extracts main article content using Mozilla's Readability algorithm
+6. **Content Extraction**: By default, extracts main article content using trafilatura
    - Removes navigation, ads, sidebars, and other clutter
    - Preserves article structure (headings, paragraphs, lists)
-   - Can be disabled with `-no-readability` flag
+   - Extracts rich metadata (title, author, date, language, description, sitename)
+   - Can be disabled with `-no-extract` flag
 
 7. **File Storage**: Each page is saved as:
    - `{path}.html`: The original HTML content
-   - `{path}.content.html`: The extracted readable content (if readability enabled)
-   - `{path}.meta.json`: Metadata including original URL, timestamp, size, and readability extraction status
+   - `{path}.content.html`: The extracted content (if content extraction enabled)
+   - `{path}.meta.json`: Metadata including original URL, timestamp, size, extraction status, and trafilatura metadata
    - Query parameters are included in filenames to avoid collisions (e.g., `/articles?id=1` → `articles_id-1.html`)
 
 8. **Resume Capability**: State is saved periodically and can be resumed by running the same command again
@@ -370,7 +371,7 @@ scraped_content/
 ├── _index.html                   # Generated index page with links to all content
 ├── index.html                    # Original HTML (root page)
 ├── index.content.html            # Extracted readable content
-├── index.meta.json               # Metadata with readability status
+├── index.meta.json               # Metadata with extraction status
 ├── articles.html                 # /articles
 ├── articles.content.html
 ├── articles.meta.json
@@ -437,9 +438,9 @@ Simply run the same command again - it will automatically resume from the state 
 ./scraper -url https://example.com -metrics-json crawl_metrics.json
 ```
 
-### Disable readability extraction (save only raw HTML)
+### Disable content extraction (save only raw HTML)
 ```bash
-./scraper -url https://example.com -no-readability
+./scraper -url https://example.com -no-extract
 ```
 
 ### Run without progress display

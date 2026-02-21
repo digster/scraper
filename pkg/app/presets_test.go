@@ -130,7 +130,7 @@ func TestPresetConfigFields(t *testing.T) {
 		UserAgent:                 "TestBot/1.0",
 		IgnoreRobots:              true,
 		MinContentLength:          100,
-		DisableReadability:        true,
+		DisableContentExtraction:  true,
 		FetchMode:                 "browser",
 		Headless:                  true,
 		WaitForLogin:              true,

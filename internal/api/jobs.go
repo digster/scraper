@@ -505,7 +505,7 @@ func translateConfig(req *CrawlRequest) (*crawler.Config, error) {
 		IgnoreRobots:       req.IgnoreRobots,
 		MinContentLength:   minContent,
 		ShowProgress:       false, // API doesn't need console progress
-		DisableReadability: req.DisableReadability,
+		DisableContentExtraction: req.DisableContentExtraction || req.DisableReadability,
 		FetchMode:          fetchMode,
 		Headless:           headless,
 		WaitForLogin:       req.WaitForLogin,

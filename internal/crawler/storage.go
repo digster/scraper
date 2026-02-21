@@ -1,6 +1,7 @@
 package crawler
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -10,23 +11,38 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	readability "github.com/go-shiori/go-readability"
+	"github.com/markusmobius/go-trafilatura"
+	"golang.org/x/net/html"
 )
 
-// extractReadableContent uses readability to extract the main article content from HTML
-func (c *Crawler) extractReadableContent(rawURL string, html string) (string, error) {
+// extractContent uses trafilatura to extract the main article content and metadata from HTML
+func (c *Crawler) extractContent(rawURL string, htmlContent string) (string, *trafilatura.ExtractResult, error) {
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse URL: %v", err)
+		return "", nil, fmt.Errorf("failed to parse URL: %v", err)
 	}
 
-	article, err := readability.FromReader(strings.NewReader(html), parsedURL)
+	opts := trafilatura.Options{
+		OriginalURL:    parsedURL,
+		EnableFallback: true,
+	}
+
+	result, err := trafilatura.Extract(strings.NewReader(htmlContent), opts)
 	if err != nil {
-		return "", fmt.Errorf("failed to extract readable content: %v", err)
+		return "", nil, fmt.Errorf("failed to extract content: %v", err)
 	}
 
-	// Return the simplified HTML content
-	return article.Content, nil
+	if result == nil || result.ContentNode == nil {
+		return "", nil, nil
+	}
+
+	// Render the content node to HTML
+	var buf bytes.Buffer
+	if err := html.Render(&buf, result.ContentNode); err != nil {
+		return "", nil, fmt.Errorf("failed to render content: %v", err)
+	}
+
+	return buf.String(), result, nil
 }
 
 // hasContent checks if an HTML page has meaningful text content
@@ -88,25 +104,48 @@ func (c *Crawler) saveContent(rawURL string, content []byte) error {
 		return err
 	}
 
-	// Extract and save readable content if enabled
-	readabilityExtracted := false
-	if !c.config.DisableReadability {
-		readableContent, err := c.extractReadableContent(rawURL, string(content))
+	// Extract and save content if enabled
+	contentExtracted := false
+	if !c.config.DisableContentExtraction {
+		extractedHTML, doc, err := c.extractContent(rawURL, string(content))
 		if err != nil {
-			c.log.Debug("Failed to extract readable content for %s: %v", rawURL, err)
-		} else if readableContent != "" {
+			c.log.Debug("Failed to extract content for %s: %v", rawURL, err)
+		} else if extractedHTML != "" {
 			// Save extracted content to .content.html file
 			contentFile := strings.TrimSuffix(fullPath, ".html") + ".content.html"
-			if err := os.WriteFile(contentFile, []byte(readableContent), 0644); err != nil {
-				c.log.Debug("Failed to save readable content for %s: %v", rawURL, err)
+			if err := os.WriteFile(contentFile, []byte(extractedHTML), 0644); err != nil {
+				c.log.Debug("Failed to save extracted content for %s: %v", rawURL, err)
 			} else {
-				readabilityExtracted = true
+				contentExtracted = true
 				metadata["content_file"] = strings.TrimSuffix(filename, ".html") + ".content.html"
-				metadata["content_size"] = len(readableContent)
+				metadata["content_size"] = len(extractedHTML)
+			}
+
+			// Add trafilatura metadata when available
+			if doc != nil {
+				meta := doc.Metadata
+				if meta.Title != "" {
+					metadata["title"] = meta.Title
+				}
+				if meta.Author != "" {
+					metadata["author"] = meta.Author
+				}
+				if !meta.Date.IsZero() {
+					metadata["date"] = meta.Date.Format(time.RFC3339)
+				}
+				if meta.Language != "" {
+					metadata["language"] = meta.Language
+				}
+				if meta.Description != "" {
+					metadata["description"] = meta.Description
+				}
+				if meta.Sitename != "" {
+					metadata["sitename"] = meta.Sitename
+				}
 			}
 		}
 	}
-	metadata["readability_extracted"] = readabilityExtracted
+	metadata["content_extracted"] = contentExtracted
 
 	metaData, _ := json.MarshalIndent(metadata, "", "  ")
 	metaFile := strings.TrimSuffix(fullPath, ".html") + ".meta.json"

@@ -25,7 +25,8 @@ type StartCrawlInput struct {
 	Pagination         *PaginationInput `json:"pagination,omitempty" jsonschema:"description=Click-based pagination settings (browser mode only)"`
 	AntiBot            *AntiBotInput    `json:"antiBot,omitempty" jsonschema:"description=Anti-bot detection evasion settings (browser mode only)"`
 	PageLoadWait       string           `json:"pageLoadWait,omitempty" jsonschema:"description=Time to wait after page load for dynamic content (browser mode, e.g. '500ms' or '2s')"`
-	DisableReadability bool             `json:"disableReadability,omitempty" jsonschema:"description=Disable readability content extraction and save raw HTML"`
+	DisableContentExtraction bool       `json:"disableContentExtraction,omitempty" jsonschema:"description=Disable content extraction (trafilatura) and save raw HTML only"`
+	DisableReadability       bool       `json:"disableReadability,omitempty" jsonschema:"description=Deprecated: use disableContentExtraction instead"`
 	NormalizeURLs      *bool            `json:"normalizeUrls,omitempty" jsonschema:"description=Enable URL normalization for better duplicate detection (default: true)"`
 	LowercasePaths     bool             `json:"lowercasePaths,omitempty" jsonschema:"description=Lowercase URL paths during normalization (default: false, use with caution)"`
 }

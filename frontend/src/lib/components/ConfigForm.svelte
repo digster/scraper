@@ -60,7 +60,7 @@
     normalizeUrls: "Enable URL normalization for better duplicate detection. Sorts query params, removes default ports, and standardizes encoding.",
     lowercasePaths: "Lowercase URL paths during normalization. Use with caution - some servers are case-sensitive.",
     // Content processing
-    disableReadability: "Skip Readability processing and save raw HTML content. Enable this if Readability is removing content you need."
+    disableContentExtraction: "Skip content extraction (trafilatura) and save raw HTML only. Enable this if extraction is removing content you need."
   };
 
   async function browseDirectory() {
@@ -431,9 +431,9 @@
       <span class="info-icon" title={tooltips.normalizeUrls}>i</span>
     </label>
     <label>
-      <input type="checkbox" bind:checked={config.disableReadability} disabled={status !== 'stopped'} />
-      Disable Readability
-      <span class="info-icon" title={tooltips.disableReadability}>i</span>
+      <input type="checkbox" bind:checked={config.disableContentExtraction} disabled={status !== 'stopped'} />
+      Disable Content Extraction
+      <span class="info-icon" title={tooltips.disableContentExtraction}>i</span>
     </label>
     <label>
       <input type="checkbox" bind:checked={config.verbose} disabled={status !== 'stopped'} />

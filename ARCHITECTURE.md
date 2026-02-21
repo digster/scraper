@@ -230,7 +230,7 @@ The GUI's `App` struct implements this interface, forwarding events via `runtime
 
 Handles content extraction and file persistence:
 
-1. **Readability extraction**: Uses `go-readability` to extract main article content
+1. **Content extraction**: Uses `go-trafilatura` to extract main article content (with go-readability and go-domdistiller as fallbacks)
 2. **File naming**: URL path → filesystem-safe path with query parameter encoding
 3. **Outputs per page**:
    - `{path}.html` - Original HTML
@@ -444,7 +444,7 @@ The `Config` struct (`config.go`) supports:
 | PrefixFilterURL | `-prefix-filter` | Only follow URLs with this prefix |
 | ExcludeExtensions | `-exclude-extensions` | Skip file extensions (e.g., `js,css,png`) |
 | IgnoreRobots | `-ignore-robots` | Bypass robots.txt |
-| DisableReadability | `-no-readability` | Skip content extraction |
+| DisableContentExtraction | `-no-extract` | Skip content extraction |
 
 ### Pagination Options (browser mode only)
 
@@ -538,7 +538,7 @@ go test -v ./internal/crawler/...
 | `github.com/wailsapp/wails/v2` | Desktop GUI framework |
 | `github.com/chromedp/chromedp` | Browser automation |
 | `github.com/PuerkitoBio/goquery` | HTML parsing and link extraction |
-| `github.com/go-shiori/go-readability` | Article content extraction |
+| `github.com/markusmobius/go-trafilatura` | Article content extraction (with readability + domdistiller fallbacks) |
 | `github.com/temoto/robotstxt` | robots.txt parsing |
 | `github.com/go-chi/chi/v5` | HTTP router for API server |
 | `github.com/google/uuid` | Job ID generation |
@@ -554,6 +554,6 @@ go test -v ./internal/crawler/...
 
 4. **Depth-First vs Breadth-First**: Uses BFS (queue-based) to prioritize shallow pages first, which typically captures site structure before diving deep.
 
-5. **Readability Extraction**: Separates raw HTML (for completeness) from extracted content (for usability), letting users choose based on their needs.
+5. **Content Extraction**: Separates raw HTML (for completeness) from extracted content (for usability), letting users choose based on their needs. Uses trafilatura for higher extraction accuracy with go-readability and go-domdistiller as fallbacks.
 
 6. **Configuration Presets**: Stored as individual JSON files in `~/.config/scraper/presets/` (cross-platform via `os.UserConfigDir()`). Presets save all settings except `outputDir` and `stateFile` (job-specific paths), making them reusable across different crawl jobs.

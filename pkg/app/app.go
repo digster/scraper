@@ -55,7 +55,7 @@ type CrawlConfig struct {
 	UserAgent          string `json:"userAgent"`
 	IgnoreRobots       bool   `json:"ignoreRobots"`
 	MinContentLength   int    `json:"minContent"`
-	DisableReadability bool   `json:"disableReadability"`
+	DisableContentExtraction bool `json:"disableContentExtraction"`
 	FetchMode          string `json:"fetchMode"`
 	Headless           bool   `json:"headless"`
 	WaitForLogin       bool   `json:"waitForLogin"`
@@ -171,7 +171,7 @@ func (a *App) StartCrawl(cfg CrawlConfig) error {
 		IgnoreRobots:       cfg.IgnoreRobots,
 		MinContentLength:   cfg.MinContentLength,
 		ShowProgress:       false, // GUI handles progress display
-		DisableReadability: cfg.DisableReadability,
+		DisableContentExtraction: cfg.DisableContentExtraction,
 		FetchMode:          fetchMode,
 		Headless:           cfg.Headless,
 		WaitForLogin:       cfg.WaitForLogin,
@@ -447,7 +447,7 @@ type PresetConfig struct {
 	UserAgent          string `json:"userAgent"`
 	IgnoreRobots       bool   `json:"ignoreRobots"`
 	MinContentLength   int    `json:"minContent"`
-	DisableReadability bool   `json:"disableReadability"`
+	DisableContentExtraction bool `json:"disableContentExtraction"`
 	// Browser settings
 	FetchMode    string `json:"fetchMode"`
 	Headless     bool   `json:"headless"`

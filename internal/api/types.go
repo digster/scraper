@@ -34,7 +34,8 @@ type CrawlRequest struct {
 	UserAgent          string            `json:"userAgent,omitempty"`
 	IgnoreRobots       bool              `json:"ignoreRobots,omitempty"`
 	MinContentLength   int               `json:"minContent,omitempty"`
-	DisableReadability bool              `json:"disableReadability,omitempty"`
+	DisableContentExtraction bool       `json:"disableContentExtraction,omitempty"`
+	DisableReadability       bool       `json:"disableReadability,omitempty"` // Deprecated: use DisableContentExtraction
 	FetchMode          string            `json:"fetchMode,omitempty"`
 	Headless           *bool             `json:"headless,omitempty"`
 	WaitForLogin       bool              `json:"waitForLogin,omitempty"`

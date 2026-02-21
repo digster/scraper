@@ -75,7 +75,7 @@ type Config struct {
 	MinContentLength   int
 	ShowProgress       bool
 	MetricsFile        string
-	DisableReadability bool
+	DisableContentExtraction bool
 	FetchMode          FetchMode
 	Headless           bool
 	WaitForLogin       bool

@@ -35,7 +35,7 @@ func main() {
 	flag.IntVar(&config.MinContentLength, "min-content", 100, "Minimum text content length (characters) for a page to be saved")
 	flag.BoolVar(&config.ShowProgress, "progress", true, "Show progress bar and statistics")
 	flag.StringVar(&config.MetricsFile, "metrics-json", "", "Output final metrics to JSON file")
-	flag.BoolVar(&config.DisableReadability, "no-readability", false, "Disable readability content extraction (extracts main article content by default)")
+	flag.BoolVar(&config.DisableContentExtraction, "no-extract", false, "Disable content extraction via trafilatura (extracts main article content by default)")
 	flag.StringVar(&fetchMode, "fetch-mode", "http", "Fetch mode: 'http' for standard HTTP client, 'browser' for real browser via chromedp")
 	flag.BoolVar(&config.Headless, "headless", true, "Run browser in headless mode (only applies when fetch-mode=browser)")
 	flag.BoolVar(&config.WaitForLogin, "wait-login", false, "Wait for manual login before crawling (only applies when fetch-mode=browser and headless=false)")

@@ -78,7 +78,7 @@ Start a new crawl job. Returns immediately with a job ID.
 | `userAgent` | string | - | Custom User-Agent string |
 | `ignoreRobots` | bool | false | Ignore robots.txt restrictions |
 | `minContent` | int | 100 | Minimum content length to save a page |
-| `disableReadability` | bool | false | Disable readability extraction and save raw HTML |
+| `disableContentExtraction` | bool | false | Disable content extraction (trafilatura) and save raw HTML only |
 | `normalizeUrls` | bool | true | Enable URL normalization for better duplicate detection |
 | `lowercasePaths` | bool | false | Lowercase URL paths during normalization (use with caution) |
 | `pagination` | object | - | Click-based pagination settings (see below) |
@@ -230,7 +230,7 @@ go build -o scraper ./cmd/cli
 | `-exclude-extensions` | - | Comma-separated extensions to exclude (e.g., js,css,png) |
 | `-link-selectors` | - | CSS selectors to filter links (e.g., 'a.internal,.nav-link') |
 | `-min-content` | 100 | Minimum text content length for a page to be saved |
-| `-no-readability` | false | Disable readability content extraction |
+| `-no-extract` | false | Disable content extraction (trafilatura) |
 | `-ignore-robots` | false | Ignore robots.txt rules |
 
 #### Display Options
@@ -421,7 +421,7 @@ go build -o scraper-api cmd/api/main.go
   "userAgent": "CustomBot/1.0",
   "ignoreRobots": false,
   "minContent": 100,
-  "disableReadability": false,
+  "disableContentExtraction": false,
   "normalizeUrls": true,
   "lowercasePaths": false,
   "fetchMode": "http",
@@ -617,7 +617,7 @@ All interfaces support anti-bot detection evasion when using browser mode. These
 Crawled content is saved as markdown files in the output directory, organized by URL path. Each file contains:
 - Page title
 - Source URL
-- Extracted content (cleaned and formatted using readability by default)
+- Extracted content (cleaned and formatted using trafilatura by default)
 
 Example structure:
 ```
