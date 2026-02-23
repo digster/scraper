@@ -107,7 +107,7 @@ scraper/
 │   │       └── LoginModal.svelte       # Manual login flow UI
 │   └── wailsjs/               # Auto-generated Wails bindings
 ├── docs/
-│   └── skill.md               # Claude Code skill documentation
+│   └── SKILL.md               # Claude Code skill documentation
 └── backup/                    # Default output directory
 ```
 

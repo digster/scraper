@@ -257,7 +257,7 @@ Done! The crawl completed successfully:
 - Output directory: /path/to/scraped_content
 ```
 
-See `docs/skill.md` for detailed tool documentation and workflows.
+See `docs/SKILL.md` for detailed tool documentation and workflows.
 
 ### GUI
 

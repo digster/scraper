@@ -50,7 +50,7 @@ Implemented a complete MCP server with:
 - **MCP Package** (`internal/mcp/`): Server setup, tool handlers, and types
 - **Entry Point** (`cmd/mcp/main.go`): CLI with `--max-jobs` flag, signal handling
 - **9 MCP Tools**: scraper_start, scraper_list, scraper_get, scraper_stop, scraper_pause, scraper_resume, scraper_metrics, scraper_confirm_login, scraper_wait
-- **Skill Documentation** (`docs/skill.md`): Tool descriptions, workflows, best practices
+- **Skill Documentation** (`docs/SKILL.md`): Tool descriptions, workflows, best practices
 - **Tests** (`internal/mcp/server_test.go`): 15 tests covering tool handlers
 - **Documentation**: Updated README.md and ARCHITECTURE.md
 
@@ -76,14 +76,14 @@ Built the MCP server by directly using `JobManager` from `internal/api/` rather 
 - `internal/mcp/tools.go`
 - `internal/mcp/types.go`
 - `internal/mcp/server_test.go`
-- `docs/skill.md`
+- `docs/SKILL.md`
 
 ## 2026-01-20: Update Skill Documentation for All Interfaces
 
-Update `/Users/ishan/lab/scraper/docs/skill.md` to document MCP, CLI, and HTTP API interfaces (originally only documented MCP).
+Update `/Users/ishan/lab/scraper/docs/SKILL.md` to document MCP, CLI, and HTTP API interfaces (originally only documented MCP).
 
 ### Summary
-Expanded skill.md from 170 lines to 564 lines with comprehensive documentation:
+Expanded SKILL.md from 170 lines to 564 lines with comprehensive documentation:
 - **Quick Start** section with examples for all three interfaces
 - **MCP Interface**: All 9 tools with parameters, workflows, and examples
 - **CLI Interface**: All 33 flags organized by category (core, filtering, display, fetch mode, anti-bot)
@@ -332,7 +332,7 @@ Updated MCP tools to support all recently added features that were missing from 
 **MCP types.go Changes:**
 - Added `PageLoadWait`, `DisableReadability`, `NormalizeURLs`, `LowercasePaths` fields to `StartCrawlInput`
 
-**docs/skill.md Changes:**
+**docs/SKILL.md Changes:**
 - Updated MCP optional parameters table with all new parameters
 - Added Pagination Object documentation section
 - Added "Crawl with Pagination" workflow example
@@ -345,4 +345,4 @@ Updated MCP tools to support all recently added features that were missing from 
 - `internal/mcp/server.go` (new tool parameter definitions)
 - `internal/mcp/tools.go` (parameter handlers and helper functions)
 - `internal/mcp/types.go` (updated type definitions)
-- `docs/skill.md` (comprehensive documentation updates)
+- `docs/SKILL.md` (comprehensive documentation updates)
